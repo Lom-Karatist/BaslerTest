@@ -16,8 +16,14 @@ public:
     BaslerWindow(QWidget *parent = nullptr);
     ~BaslerWindow();
 
+
+
+private slots:
+    void on_pushButtonUpdate_clicked();
+
 private:
     Ui::BaslerWindow *ui;
+    int m_camerasCount;
     CameraManager *m_cameraManager;
 };
 #endif // BASLERWINDOW_H

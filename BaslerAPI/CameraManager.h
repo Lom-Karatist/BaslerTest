@@ -4,8 +4,8 @@
 #include <QObject>
 #include <QStringList>
 #include <pylon/PylonIncludes.h>
+#include <QImage>  // добавить в начало
 
-// Структура для хранения информации о камере
 struct CameraInfo {
     QString fullName;
     QString modelName;
@@ -22,11 +22,17 @@ public:
     explicit CameraManager(QObject *parent = nullptr);
     ~CameraManager();
 
-    // Получить список доступных камер
     QList<CameraInfo> enumerateCameras();
 
-    // Проверить, инициализирован ли Pylon
     bool isInitialized() const { return m_initialized; }
+
+    /**
+     * @brief grabFrame Захват кадра с камеры по индексу
+     * @param index Индекс кадра
+     * @param timeoutMs Время ожидания
+     * @return  Изображение
+     */
+    QImage grabFrame(int index, int timeoutMs = 5000);  // захват кадра с камеры по индексу
 
 private:
     bool m_initialized;

@@ -14,18 +14,18 @@ win32 {
     INCLUDEPATH += $$PYLON_ROOT/include
     LIBS += -L$$PYLON_ROOT/lib/x64 -lPylonBase_v11
 
-    PYLON_BIN = $$PYLON_ROOT/Assemblies/Basler.Pylon/x64
-    CONFIG(debug, debug|release) {
-        DLL_FILES = $$files($$PYLON_BIN/*.dll)
-        for(dll, DLL_FILES) {
-            QMAKE_POST_LINK += $$quote(cmd /c copy /y \"$$dll\" \"$$OUT_PWD\\debug\\\" $$escape_expand(\n\t))
-        }
-    } else {
-        DLL_FILES = $$files($$PYLON_BIN/*.dll)
-        for(dll, DLL_FILES) {
-            QMAKE_POST_LINK += $$quote(cmd /c copy /y \"$$dll\" \"$$OUT_PWD\\release\\\" $$escape_expand(\n\t))
-        }
-    }
+#    PYLON_BIN = $$PYLON_ROOT/Assemblies/Basler.Pylon/x64
+#    CONFIG(debug, debug|release) {
+#        DLL_FILES = $$files($$PYLON_BIN/*.dll)
+#        for(dll, DLL_FILES) {
+#            QMAKE_POST_LINK += $$quote(cmd /c copy /y \"$$dll\" \"$$OUT_PWD\\debug\\\" $$escape_expand(\n\t))
+#        }
+#    } else {
+#        DLL_FILES = $$files($$PYLON_BIN/*.dll)
+#        for(dll, DLL_FILES) {
+#            QMAKE_POST_LINK += $$quote(cmd /c copy /y \"$$dll\" \"$$OUT_PWD\\release\\\" $$escape_expand(\n\t))
+#        }
+#    }
 }
 linux {
     INCLUDEPATH += /opt/pylon/include
