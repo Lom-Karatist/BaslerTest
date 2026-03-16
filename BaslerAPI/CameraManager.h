@@ -1,17 +1,19 @@
 #ifndef CAMERAMANAGER_H
 #define CAMERAMANAGER_H
 
-#pragma once
-
 #include <QObject>
-#include <QImage>
-#include <QDebug>
+#include <QStringList>
 #include <pylon/PylonIncludes.h>
-#include <pylon/BaslerUniversalInstantCamera.h>
 
-using namespace Pylon;
-using namespace Basler_UniversalCameraParams;
-
+// Структура для хранения информации о камере
+struct CameraInfo {
+    QString fullName;
+    QString modelName;
+    QString serialNumber;
+    QString vendor;
+    QString deviceVersion;
+    bool isAvailable;
+};
 
 class CameraManager : public QObject
 {
@@ -20,18 +22,14 @@ public:
     explicit CameraManager(QObject *parent = nullptr);
     ~CameraManager();
 
-    bool openCamera();
-    void closeCamera();
-    bool grabOneFrame();
+    // Получить список доступных камер
+    QList<CameraInfo> enumerateCameras();
 
-signals:
-   void frameGrabbed(int width, int height, int pixelSize, quint64 timestamp);
-   void errorOccurred(const QString &message);
+    // Проверить, инициализирован ли Pylon
+    bool isInitialized() const { return m_initialized; }
 
 private:
-   CBaslerUniversalInstantCamera *m_camera;
-   bool m_isOpen;
-
+    bool m_initialized;
 };
 
 #endif // CAMERAMANAGER_H

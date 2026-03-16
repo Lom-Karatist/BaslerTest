@@ -2,6 +2,7 @@
 #define BASLERWINDOW_H
 
 #include <QMainWindow>
+#include <BaslerAPI/CameraManager.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class BaslerWindow; }
@@ -17,5 +18,6 @@ public:
 
 private:
     Ui::BaslerWindow *ui;
+    CameraManager *m_cameraManager;
 };
 #endif // BASLERWINDOW_H
