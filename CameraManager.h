@@ -6,11 +6,11 @@
 #include <QObject>
 #include <QImage>
 #include <QDebug>
-#include <pylon/PylonIncludes.h>
-#include <pylon/BaslerUniversalInstantCamera.h>
+//#include <pylon/PylonIncludes.h>
+//#include <pylon/BaslerUniversalInstantCamera.h>
 
-using namespace Pylon;
-using namespace Basler_UniversalCameraParams;
+//using namespace Pylon;
+//using namespace Basler_UniversalCameraParams;
 
 
 class CameraManager : public QObject
