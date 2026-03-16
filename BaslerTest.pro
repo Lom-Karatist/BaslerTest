@@ -9,14 +9,14 @@ CONFIG += c++11
 #DEFINES += QT_DISABLE_DEPRECATED_BEFORE=0x060000    # disables all the APIs deprecated before Qt 6.0.0
 
 SOURCES += \
-    CameraManager.cpp \
+    BaslerAPI\CameraManager.cpp \
     main.cpp \
     BaslerWindow.cpp
 
 HEADERS += \
     BaslerWindow.h \
-    CameraManager.h \
-    Frame.h
+    BaslerAPI\CameraManager.h \
+    BaslerAPI\Frame.h
 
 FORMS += \
     BaslerWindow.ui
