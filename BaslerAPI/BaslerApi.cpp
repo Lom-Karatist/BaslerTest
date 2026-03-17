@@ -7,7 +7,7 @@
 BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, const QString &serialNumber, QObject *parent)
     : QObject(parent)
     , m_isActive(true)
-    , m_isGrabbing(true)
+    , m_isGrabbing(false)
     , m_isConnected(false)
     , m_isMaster(isMaster)
     , m_params(params)
@@ -47,6 +47,7 @@ void BaslerApi::run()
 
     int i = 0;
     while (m_isActive.load()) {
+        if(!m_isGrabbing.load())
         QApplication::processEvents();
         if (m_isGrabbing.load()) {
             if(!m_camera->IsGrabbing()){
@@ -95,10 +96,8 @@ void BaslerApi::startGrabbing()
 void BaslerApi::pauseGrabbing()
 {
     if (m_isGrabbing.exchange(false)) {
-        qDebug()<<"m_isGrabbing changed to false";
         if (m_camera && m_camera->IsGrabbing()) {
             m_camera->StopGrabbing();
-            qDebug()<<"Grabbing stopped";
         }
     }
 }

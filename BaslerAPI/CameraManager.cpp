@@ -33,6 +33,9 @@ CameraManager::CameraManager(const BaslerCameraParams& masterParams,
             this, &CameraManager::onMasterRawData, Qt::QueuedConnection);
     connect(m_slave, &BaslerApi::rawDataReceived,
             this, &CameraManager::onSlaveRawData, Qt::QueuedConnection);
+
+    QThreadPool::globalInstance()->start(m_master);
+    QThreadPool::globalInstance()->start(m_slave);
 }
 
 CameraManager::~CameraManager()
@@ -44,9 +47,8 @@ CameraManager::~CameraManager()
 void CameraManager::start()
 {
     if (!m_master || !m_slave) return;
-
-    QThreadPool::globalInstance()->start(m_master);
-    QThreadPool::globalInstance()->start(m_slave);
+    m_master->startGrabbing();
+    m_slave->startGrabbing();
 }
 
 void CameraManager::pause()
@@ -76,7 +78,7 @@ void CameraManager::onMasterConnected(bool success)
 {
     if (!success) {
         emit errorOccurred("Master camera failed to connect");
-        stop(); // останавливаем обе камеры
+        stop();
         return;
     }
 
