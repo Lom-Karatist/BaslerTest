@@ -12,9 +12,7 @@ class CameraManager : public QObject
     Q_OBJECT
 
 public:
-    explicit CameraManager(const BaslerCameraParams& masterParams,
-                           const BaslerCameraParams& slaveParams,
-                           QObject *parent = nullptr);
+    explicit CameraManager(QObject *parent = nullptr);
     ~CameraManager();
     void start();
     void pause();
@@ -38,6 +36,7 @@ private slots:
     void onSlaveRawData(const QByteArray& data, int w, int h, int pixelFormat);
 
 private:
+    static BaslerCameraParams loadParamsFromFile(const QString& filePath);
     QImage convertToQImage(const QByteArray& data, int width, int height, int pixelFormat);
 
     BaslerApi* m_master;

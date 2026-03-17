@@ -45,21 +45,16 @@ void BaslerApi::run()
     m_camera->StartGrabbing();
 //    configureMasterSlave();
 
-    int i = 0;
     while (m_isActive.load()) {
         if(!m_isGrabbing.load())
         QApplication::processEvents();
         if (m_isGrabbing.load()) {
             if(!m_camera->IsGrabbing()){
-                i++;
-                qDebug()<<i;
                 startGrabbing();
             }else{
                 try {
-                    qDebug()<<"Grabbing";
                     m_camera->RetrieveResult(5000, m_ptrGrabResult, TimeoutHandling_ThrowException);
                     if (m_ptrGrabResult.IsValid() && m_ptrGrabResult->GrabSucceeded()) {
-                        qDebug()<<m_ptrGrabResult->GetWidth()<<m_ptrGrabResult->GetHeight();
                         sendRawData();
                     } else {
                         if(m_isGrabbing.load()){
@@ -165,15 +160,15 @@ void BaslerApi::setupCameraFeatures()
 
         // Экспозиция
         if (m_camera->ExposureTimeAbs.IsWritable())
-            m_camera->ExposureTimeAbs.SetValue(m_params.exposureTimeAbs);
+            m_camera->ExposureTimeAbs.SetValue(m_params.exposureTime);
         else if (m_camera->ExposureTime.IsWritable())
-            m_camera->ExposureTime.SetValue(m_params.exposureTimeAbs); // для некоторых моделей
+            m_camera->ExposureTime.SetValue(m_params.exposureTime); // для некоторых моделей
 
         // Gain
         if (m_camera->GainRaw.IsWritable())
-            m_camera->GainRaw.SetValue(m_params.gainRaw);
+            m_camera->GainRaw.SetValue(m_params.gain);
         else if (m_camera->Gain.IsWritable())
-            m_camera->Gain.SetValue(m_params.gainRaw);
+            m_camera->Gain.SetValue(m_params.gain);
 
         // Пиксельный формат
         if (m_camera->PixelFormat.IsWritable()) {

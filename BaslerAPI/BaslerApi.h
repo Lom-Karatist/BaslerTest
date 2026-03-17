@@ -16,12 +16,14 @@ using namespace Basler_UniversalCameraParams;
  * @brief The BaslerCameraParams struct includes all needed camera parameters
  */
 struct BaslerCameraParams {
-    double exposureTimeAbs = 10000.0; // микросекунды
-    double gainRaw = 1.0;             // в условных единицах камеры
-    bool isMaster = true;             // Роль камеры: мастер или слейв
+    QString serialNumber;
+    double exposureTime = 10000.0; // микросекунды
+    double gain = 1.0;
+    bool isMaster = true;
     int width = 1920;
     int height = 1200;
     double acquisitionFrameRate = 10;
+    int pixelFormat;
 };
 
 /**

@@ -1,10 +1,10 @@
 // CameraManager.cpp
 #include "CameraManager.h"
 #include <QDebug>
+#include <QSettings>
+#include <QDir>
 
-CameraManager::CameraManager(const BaslerCameraParams& masterParams,
-                             const BaslerCameraParams& slaveParams,
-                             QObject *parent)
+CameraManager::CameraManager(QObject *parent)
     : QObject(parent)
     , m_master(nullptr)
     , m_slave(nullptr)
@@ -13,6 +13,9 @@ CameraManager::CameraManager(const BaslerCameraParams& masterParams,
     , m_isImageNeeded(true)
 {
     PylonInitialize();
+    BaslerCameraParams masterParams = loadParamsFromFile(QDir::currentPath() + "/HS.ini");
+    BaslerCameraParams slaveParams = loadParamsFromFile(QDir::currentPath() + "/OC.ini");
+
     m_master = new BaslerApi(true, masterParams, m_serialMaster);
     m_slave  = new BaslerApi(false, slaveParams, m_serialSlave);
     m_master->setAutoDelete(false);
@@ -134,6 +137,27 @@ void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h, int pix
     if (!img.isNull()) {
         emit slaveImageReady(img);
     }
+}
+
+BaslerCameraParams CameraManager::loadParamsFromFile(const QString &filePath)
+{
+    BaslerCameraParams params;
+    QSettings settings(filePath, QSettings::IniFormat);
+
+    settings.beginGroup("Camera");
+    params.serialNumber = settings.value("serialNumber", "").toString();
+    params.isMaster = settings.value("isMaster", false).toBool();
+    params.exposureTime = settings.value("exposureTime", 10000.0).toDouble();
+    params.gain = settings.value("gain", 1.0).toDouble();
+    params.width = settings.value("width", 1920).toInt();
+    params.height = settings.value("height", 1200).toInt();
+    params.acquisitionFrameRate = settings.value("acquisitionFrameRate", 10.0).toDouble();
+    QString pixFmt = settings.value("pixelFormat", "Mono8").toString();
+    if (pixFmt == "Mono8") params.pixelFormat = PixelType_Mono8;
+    else if (pixFmt == "Mono12") params.pixelFormat = PixelType_Mono12;
+    settings.endGroup();
+
+    return params;
 }
 
 QImage CameraManager::convertToQImage(const QByteArray &data, int width, int height, int pixelFormat)

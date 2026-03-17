@@ -14,21 +14,7 @@ BaslerWindow::BaslerWindow(QWidget *parent)
     ui->setupUi(this);
     statusBar()->showMessage("Not started");
 
-    BaslerCameraParams masterParams;
-    masterParams.isMaster = true;
-    masterParams.exposureTimeAbs = 10000.0; // микросекунды
-    masterParams.gainRaw = 0.0;
-    masterParams.width = 1920;
-    masterParams.height = 1200;
-
-    BaslerCameraParams slaveParams;
-    slaveParams.isMaster = false;
-    slaveParams.exposureTimeAbs = 10000.0;
-    slaveParams.gainRaw = 0.0;
-    slaveParams.width = 1920;
-    slaveParams.height = 1200;
-
-    m_cameraManager = new CameraManager(masterParams, slaveParams, this);
+    m_cameraManager = new CameraManager(this);
     connect(m_cameraManager, &CameraManager::ready, this, &BaslerWindow::onManagerReady);
     connect(m_cameraManager, &CameraManager::errorOccurred, this, &BaslerWindow::onError);
     connect(m_cameraManager, &CameraManager::masterImageReady, this, &BaslerWindow::updateMasterImage);
