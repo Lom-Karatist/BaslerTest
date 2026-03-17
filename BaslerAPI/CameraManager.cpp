@@ -10,6 +10,7 @@ CameraManager::CameraManager(const BaslerCameraParams& masterParams,
     , m_slave(nullptr)
     , m_connectedCount(0)
     , m_ready(false)
+    , m_isImageNeeded(true)
 {
     m_master = new BaslerApi(true, masterParams, m_serialMaster);
     m_slave  = new BaslerApi(false, slaveParams, m_serialSlave);
@@ -24,11 +25,6 @@ CameraManager::CameraManager(const BaslerCameraParams& masterParams,
             this, &CameraManager::onMasterError, Qt::QueuedConnection);
     connect(m_slave, &BaslerApi::sendErrorMessage,
             this, &CameraManager::onSlaveError, Qt::QueuedConnection);
-
-    connect(m_master, &BaslerApi::imageReceived,
-            this, &CameraManager::onMasterImage, Qt::QueuedConnection);
-    connect(m_slave, &BaslerApi::imageReceived,
-            this, &CameraManager::onSlaveImage, Qt::QueuedConnection);
 
     connect(m_master, &BaslerApi::rawDataReceived,
             this, &CameraManager::onMasterRawData, Qt::QueuedConnection);
@@ -49,7 +45,7 @@ CameraManager::~CameraManager()
         m_slave = nullptr;
     }
 
-    QThreadPool::globalInstance()->waitForDone(3000);
+    QThreadPool::globalInstance()->waitForDone(5000);
 }
 
 void CameraManager::start()
@@ -119,22 +115,49 @@ void CameraManager::onSlaveError(const QString& err)
     m_ready = false;
 }
 
-void CameraManager::onMasterImage(const QImage& img)
+void CameraManager::onMasterRawData(const QByteArray& data, int w, int h, int pixelFormat)
 {
-    emit masterImageReceived(img);
+    QImage img = convertToQImage(data, w, h, pixelFormat);
+    if (!img.isNull() && m_isImageNeeded) {
+        emit masterImageReady(img);
+    }
 }
 
-void CameraManager::onSlaveImage(const QImage& img)
+void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h, int pixelFormat)
 {
-    emit slaveImageReceived(img);
+    QImage img = convertToQImage(data, w, h, pixelFormat);
+    if (!img.isNull()) {
+        emit slaveImageReady(img);
+    }
 }
 
-void CameraManager::onMasterRawData(const QByteArray& data, int w, int h)
+QImage CameraManager::convertToQImage(const QByteArray &data, int width, int height, int pixelFormat)
 {
-    emit masterRawData(data, w, h);
-}
+    QImage::Format format = QImage::Format_Invalid;
+    int bytesPerPixel = 0;
 
-void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h)
-{
-    emit slaveRawData(data, w, h);
+    switch (pixelFormat) {
+    case PixelType_Mono8:
+        format = QImage::Format_Grayscale8;
+        bytesPerPixel = 1;
+        break;
+    case PixelType_Mono12:
+    case PixelType_Mono16:
+        format = QImage::Format_Grayscale16;
+        bytesPerPixel = 2;
+        break;
+    default:
+        qWarning() << "Unsupported pixel format:" << pixelFormat;
+        return QImage();
+    }
+
+    if (format == QImage::Format_Invalid) return QImage();
+
+    if (data.size() != width * height * bytesPerPixel) {
+        qWarning() << "Data size mismatch";
+        return QImage();
+    }
+
+    QImage image(reinterpret_cast<const uchar*>(data.constData()), width, height, width * bytesPerPixel, format);
+    return image.copy();
 }

@@ -18,21 +18,21 @@ BaslerWindow::BaslerWindow(QWidget *parent)
     masterParams.isMaster = true;
     masterParams.exposureTimeAbs = 10000.0; // микросекунды
     masterParams.gainRaw = 0.0;
-    masterParams.width = 640;
-    masterParams.height = 480;
+    masterParams.width = 1920;
+    masterParams.height = 1200;
 
     BaslerCameraParams slaveParams;
     slaveParams.isMaster = false;
     slaveParams.exposureTimeAbs = 10000.0;
     slaveParams.gainRaw = 0.0;
-    slaveParams.width = 640;
-    slaveParams.height = 480;
+    slaveParams.width = 1920;
+    slaveParams.height = 1200;
 
     m_cameraManager = new CameraManager(masterParams, slaveParams, this);
     connect(m_cameraManager, &CameraManager::ready, this, &BaslerWindow::onManagerReady);
     connect(m_cameraManager, &CameraManager::errorOccurred, this, &BaslerWindow::onError);
-    connect(m_cameraManager, &CameraManager::masterImageReceived, this, &BaslerWindow::updateMasterImage);
-    connect(m_cameraManager, &CameraManager::slaveImageReceived, this, &BaslerWindow::updateSlaveImage);
+    connect(m_cameraManager, &CameraManager::masterImageReady, this, &BaslerWindow::updateMasterImage);
+    connect(m_cameraManager, &CameraManager::slaveImageReady, this, &BaslerWindow::updateSlaveImage);
 }
 
 BaslerWindow::~BaslerWindow()

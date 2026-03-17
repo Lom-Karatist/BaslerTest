@@ -21,6 +21,7 @@ struct BaslerCameraParams {
     bool isMaster = true;             // Роль камеры: мастер или слейв
     int width = 1920;
     int height = 1200;
+    double acquisitionFrameRate = 10;
 };
 
 /**
@@ -55,12 +56,9 @@ public:
     int getImageHeight() const { return m_params.height; }
 
 signals:
-    // Сигналы для связи с GUI
     void connectionComplete(bool success);
     void sendErrorMessage(const QString& error);
-    void imageReceived(const QImage& image); // Для отображения
-    void rawDataReceived(const QByteArray& data, int width, int height); // Для сохранения/обработки
-    void cameraStats(double fps, double temperature); // Если доступно
+    void rawDataReceived(const QByteArray& data, int width, int height, int pixelFormat);
 
 private:
     bool initializeCamera();
@@ -69,17 +67,10 @@ private:
 
     std::atomic<bool> m_isGrabbing;
     volatile bool m_isConnected;
-
     bool m_isMaster;
     BaslerCameraParams m_params;
-
     CBaslerUniversalInstantCamera* m_camera;
     CGrabResultPtr m_ptrGrabResult;
-    CImageFormatConverter m_converter; // Для конвертации в QImage
-    CPylonImage m_pylonImage;
-
-    QElapsedTimer m_fpsTimer;
-    int m_frameCount;
     QString m_serialNumber;
 };
 

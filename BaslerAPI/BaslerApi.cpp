@@ -1,6 +1,7 @@
 #include "BaslerApi.h"
 #include <QThread>
 #include <QDebug>
+#include <pylon/ImageEventHandler.h>
 
 BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, const QString &serialNumber, QObject *parent)
     : QObject(parent)
@@ -9,7 +10,6 @@ BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, const QStr
     , m_isMaster(isMaster)
     , m_params(params)
     , m_camera(nullptr)
-    , m_frameCount(0)
     , m_serialNumber(serialNumber)
 {
 
@@ -29,75 +29,46 @@ BaslerApi::~BaslerApi()
 void BaslerApi::run()
 {
     m_isConnected = initializeCamera();
-
     emit connectionComplete(m_isConnected);
+    if (!m_isConnected) return;
 
-    if (!m_isConnected) {
-        return;
+    // Принудительно устанавливаем базовые настройки для гарантированной работы
+    if (m_camera->TriggerMode.IsWritable()) {
+        m_camera->TriggerMode.SetValue(TriggerMode_Off);
+        qDebug() << "TriggerMode set to Off";
+    }
+    if (GenApi::IsAvailable(m_camera->AcquisitionMode)) {
+        m_camera->AcquisitionMode.SetValue(AcquisitionMode_Continuous);
+        qDebug() << "AcquisitionMode set to Continuous";
     }
 
+//    configureMasterSlave();
     setupCameraFeatures();
-    configureMasterSlave();
 
-    // Запускаем захват
-    startGrabbing(); // m_isGrabbing = true
+    m_camera->StartGrabbing();
+    m_isGrabbing = true;
 
-    m_fpsTimer.start();
-    m_frameCount = 0;
-
-    // Для мастера: непрерывный захват (GrabStrategy_OneByOne)
-    // Для слейва: тоже непрерывный, но он будет ждать триггера
-    if (m_isMaster) {
-        m_camera->StartGrabbing(GrabStrategy_OneByOne, GrabLoop_ProvidedByInstantCamera);
-    } else {
-        m_camera->StartGrabbing(GrabStrategy_OneByOne, GrabLoop_ProvidedByInstantCamera);
-    }
-
-    while (m_isGrabbing) {
+    while (m_isGrabbing && m_camera->IsGrabbing()) {
         try {
-            // Для слейва имеет смысл проверить готовность триггера, но StartGrabbing уже запущен,
-            // и RetrieveResult будет ждать кадр. Для мастера просто ждём кадр.
-            if (m_camera->GetGrabResultWaitObject().Wait(1000)) {
-                m_camera->RetrieveResult(5000, m_ptrGrabResult, TimeoutHandling_ThrowException);
+            // Ждём кадр до 5 секунд
+            m_camera->RetrieveResult(5000, m_ptrGrabResult, TimeoutHandling_ThrowException);
 
-                if (m_ptrGrabResult->GrabSucceeded()) {
-                    // Конвертация и отправка сигналов (как раньше)
-                    if (m_converter.IsSupportedOutputFormat(PixelType_BGRA8packed) &&
-                            m_converter.IsSupportedInputFormat(m_ptrGrabResult->GetPixelType())) {
-                        m_converter.Convert(m_pylonImage, m_ptrGrabResult);
-                        QImage image((const uchar*)m_pylonImage.GetBuffer(),
-                                     m_pylonImage.GetWidth(),
-                                     m_pylonImage.GetHeight(),
-                                     QImage::Format_RGB32);
-                        emit imageReceived(image.copy());
-                    }
-
-                    QByteArray rawData((const char*)m_ptrGrabResult->GetBuffer(),
-                                       m_ptrGrabResult->GetImageSize());
-                    emit rawDataReceived(rawData, m_ptrGrabResult->GetWidth(),
-                                         m_ptrGrabResult->GetHeight());
-
-                    m_frameCount++;
-                    qint64 elapsed = m_fpsTimer.elapsed();
-                    if (elapsed >= 2000) {
-                        double fps = m_frameCount / (elapsed / 1000.0);
-                        emit cameraStats(fps, 0.0);
-                        m_frameCount = 0;
-                        m_fpsTimer.restart();
-                    }
-                } else {
-                    emit sendErrorMessage(QString("Grab failed: %1").arg(QString::fromStdString(m_ptrGrabResult->GetErrorDescription().c_str())));
-                }
+            if (m_ptrGrabResult.IsValid() && m_ptrGrabResult->GrabSucceeded()) {
+                QByteArray rawData((const char*)m_ptrGrabResult->GetBuffer(),
+                                   m_ptrGrabResult->GetImageSize());
+                emit rawDataReceived(rawData, m_ptrGrabResult->GetWidth(),
+                                     m_ptrGrabResult->GetHeight(),
+                                     m_ptrGrabResult->GetPixelType());
             } else {
-                // Таймаут ожидания кадра – для мастера это может означать проблемы,
-                // для слейва – отсутствие триггера.
-                // Не спамим ошибками, просто продолжаем цикл.
-                QThread::msleep(1);
+                QString err = m_ptrGrabResult.IsValid()
+                    ? QString("Grab failed: %1").arg(QString::fromStdString(m_ptrGrabResult->GetErrorDescription().c_str()))
+                    : "Invalid grab result";
+                emit sendErrorMessage(err);
             }
         } catch (const GenericException& e) {
             emit sendErrorMessage(QString("Pylon Exception: %1").arg(e.GetDescription()));
-            // Возможно, стоит выйти из цикла, если ошибка критическая
-            // m_isGrabbing = false;
+            // Если ошибка критическая, можно выйти из цикла
+            if (!m_isGrabbing) break;
         }
     }
 
@@ -137,7 +108,6 @@ bool BaslerApi::initializeCamera()
                 break;
             }
         }
-
         if (!found) {
             emit sendErrorMessage(QString("Camera with serial %1 not found.").arg(m_serialNumber));
             return false;
@@ -190,9 +160,6 @@ void BaslerApi::setupCameraFeatures()
             m_camera->PixelFormat.SetValue(PixelFormat_Mono8);
         }
 
-        // Конвертер для QImage
-        m_converter.OutputPixelFormat = PixelType_BGRA8packed;
-
     } catch (const GenericException& e) {
         emit sendErrorMessage(QString("Setup error: %1").arg(e.GetDescription()));
     }
@@ -204,25 +171,46 @@ void BaslerApi::configureMasterSlave()
 
     try {
         if (m_isMaster) {
-            // Мастер: работает по внутреннему таймеру, триггер отключён
+            // --- Настройка мастера ---
+            // Отключаем внешний триггер (работа по внутреннему таймеру)
             m_camera->TriggerSelector.SetValue(TriggerSelector_FrameStart);
             m_camera->TriggerMode.SetValue(TriggerMode_Off);
 
-            // Настройка линии синхронизации как выхода
-            if (m_camera->LineSelector.IsWritable() && m_camera->LineMode.IsWritable()) {
-                m_camera->LineSelector.SetValue(LineSelector_Line2); // Выберите нужную линию
+            // Включаем AcquisitionFrameRate и устанавливаем желаемое значение
+            if (GenApi::IsAvailable(m_camera->AcquisitionFrameRateEnable)) {
+                m_camera->AcquisitionFrameRateEnable.SetValue(true);
+            }
+            if (GenApi::IsAvailable(m_camera->AcquisitionFrameRate)) {
+                // Желаемую частоту можно передавать через m_params (добавить поле)
+                m_camera->AcquisitionFrameRate.SetValue(m_params.acquisitionFrameRate);
+            }
+
+            // Настройка линии выхода (используем Line3, как в документе)
+            if (GenApi::IsAvailable(m_camera->LineSelector)) {
+                m_camera->LineSelector.SetValue(LineSelector_Line3);
+            }
+            if (GenApi::IsAvailable(m_camera->LineMode)) {
                 m_camera->LineMode.SetValue(LineMode_Output);
-                if (m_camera->LineSource.IsWritable()) {
-                    m_camera->LineSource.SetValue(LineSource_FrameTriggerWait);
-                }
+            }
+            if (GenApi::IsAvailable(m_camera->LineSource)) {
+                // Сигнал "ожидание триггера кадра" – именно он нужен для синхронизации
+                m_camera->LineSource.SetValue(LineSource_FrameTriggerWait);
             }
         } else {
-            // Слейв: ждёт внешний триггер на Line1
+            // --- Настройка слейва ---
+            // Включаем внешний триггер на Line4
             m_camera->TriggerSelector.SetValue(TriggerSelector_FrameStart);
             m_camera->TriggerMode.SetValue(TriggerMode_On);
-            m_camera->TriggerSource.SetValue(TriggerSource_Line1);
+            m_camera->TriggerSource.SetValue(TriggerSource_Line4);
             m_camera->TriggerActivation.SetValue(TriggerActivation_RisingEdge);
-            if (m_camera->TriggerDelayAbs.IsWritable()) {
+
+            // Выключаем AcquisitionFrameRate (слейв следует за мастером)
+            if (GenApi::IsAvailable(m_camera->AcquisitionFrameRateEnable)) {
+                m_camera->AcquisitionFrameRateEnable.SetValue(false);
+            }
+
+            // Задержка триггера (опционально, можно оставить 0)
+            if (GenApi::IsAvailable(m_camera->TriggerDelayAbs)) {
                 m_camera->TriggerDelayAbs.SetValue(0.0);
             }
         }
@@ -230,4 +218,3 @@ void BaslerApi::configureMasterSlave()
         emit sendErrorMessage(QString("MasterSlave config error: %1").arg(e.GetDescription()));
     }
 }
-
