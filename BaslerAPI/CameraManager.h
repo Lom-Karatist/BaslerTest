@@ -2,40 +2,63 @@
 #define CAMERAMANAGER_H
 
 #include <QObject>
-#include <QStringList>
-#include <pylon/PylonIncludes.h>
-#include <QImage>  // добавить в начало
-
-struct CameraInfo {
-    QString fullName;
-    QString modelName;
-    QString serialNumber;
-    QString vendor;
-    QString deviceVersion;
-    bool isAvailable;
-};
+#include <QThreadPool>
+#include <QMutex>
+#include <QAtomicInt>
+#include "BaslerApi.h"
 
 class CameraManager : public QObject
 {
     Q_OBJECT
+
 public:
-    explicit CameraManager(QObject *parent = nullptr);
+    explicit CameraManager(const BaslerCameraParams& masterParams,
+                           const BaslerCameraParams& slaveParams,
+                           QObject *parent = nullptr);
     ~CameraManager();
 
-    QList<CameraInfo> enumerateCameras();
+    // Запуск обеих камер (инициализация и захват)
+    void start();
 
-    bool isInitialized() const { return m_initialized; }
+    // Остановка захвата и освобождение ресурсов
+    void stop();
 
-    /**
-     * @brief grabFrame Захват кадра с камеры по индексу
-     * @param index Индекс кадра
-     * @param timeoutMs Время ожидания
-     * @return  Изображение
-     */
-    QImage grabFrame(int index, int timeoutMs = 5000);  // захват кадра с камеры по индексу
+    // Получить состояние готовности
+    bool isReady() const { return m_ready; }
+
+signals:
+    // Сигнал, что обе камеры подключены и готовы к работе
+    void ready();
+
+    // Сигнал ошибки (для GUI)
+    void errorOccurred(const QString& message);
+
+    // Проброс сигналов от камер (например, для отображения)
+    void masterImageReceived(const QImage& image);
+    void slaveImageReceived(const QImage& image);
+    void masterRawData(const QByteArray& data, int w, int h);
+    void slaveRawData(const QByteArray& data, int w, int h);
+
+private slots:
+    // Слоты для обработки сигналов от камер
+    void onMasterConnected(bool success);
+    void onSlaveConnected(bool success);
+    void onMasterError(const QString& err);
+    void onSlaveError(const QString& err);
+    void onMasterImage(const QImage& img);
+    void onSlaveImage(const QImage& img);
+    void onMasterRawData(const QByteArray& data, int w, int h);
+    void onSlaveRawData(const QByteArray& data, int w, int h);
 
 private:
-    bool m_initialized;
+    BaslerApi* m_master;
+    BaslerApi* m_slave;
+
+    QAtomicInt m_connectedCount;   // счётчик успешных подключений
+    bool m_ready;                  // флаг готовности
+    QMutex m_mutex;                // защита m_ready
+    const QString m_serialMaster = "25338664";
+    const QString m_serialSlave = "25338650";
 };
 
 #endif // CAMERAMANAGER_H

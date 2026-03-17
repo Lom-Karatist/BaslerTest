@@ -16,14 +16,16 @@ public:
     BaslerWindow(QWidget *parent = nullptr);
     ~BaslerWindow();
 
-
-
 private slots:
-    void on_pushButtonUpdate_clicked();
+    void on_pushButtonStartStop_clicked();
+    void onManagerReady();
+    void onError(const QString& msg);
+    void updateMasterImage(const QImage& img);
+    void updateSlaveImage(const QImage& img);
 
 private:
     Ui::BaslerWindow *ui;
-    int m_camerasCount;
     CameraManager *m_cameraManager;
+    bool m_isRunning;
 };
 #endif // BASLERWINDOW_H

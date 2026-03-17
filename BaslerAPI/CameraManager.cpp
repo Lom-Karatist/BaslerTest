@@ -1,115 +1,140 @@
+// CameraManager.cpp
 #include "CameraManager.h"
 #include <QDebug>
-#include <QString>
-#include <pylon/BaslerUniversalInstantCamera.h>
 
-using namespace Pylon;
-
-CameraManager::CameraManager(QObject *parent)
+CameraManager::CameraManager(const BaslerCameraParams& masterParams,
+                             const BaslerCameraParams& slaveParams,
+                             QObject *parent)
     : QObject(parent)
-    , m_initialized(false)
+    , m_master(nullptr)
+    , m_slave(nullptr)
+    , m_connectedCount(0)
+    , m_ready(false)
 {
-    try {
-        PylonInitialize();
-        m_initialized = true;
-        qDebug() << "Pylon SDK initialized successfully.";
-    } catch (const GenericException &e) {
-        qCritical() << "Failed to initialize Pylon SDK:" << e.what();
-    }
+    m_master = new BaslerApi(true, masterParams, m_serialMaster);
+    m_slave  = new BaslerApi(false, slaveParams, m_serialSlave);
+
+    // Подключаем сигналы (используем QueuedConnection, чтобы слоты выполнялись в потоке менеджера, т.е. главном)
+    connect(m_master, &BaslerApi::connectionComplete,
+            this, &CameraManager::onMasterConnected, Qt::QueuedConnection);
+    connect(m_slave, &BaslerApi::connectionComplete,
+            this, &CameraManager::onSlaveConnected, Qt::QueuedConnection);
+
+    connect(m_master, &BaslerApi::sendErrorMessage,
+            this, &CameraManager::onMasterError, Qt::QueuedConnection);
+    connect(m_slave, &BaslerApi::sendErrorMessage,
+            this, &CameraManager::onSlaveError, Qt::QueuedConnection);
+
+    connect(m_master, &BaslerApi::imageReceived,
+            this, &CameraManager::onMasterImage, Qt::QueuedConnection);
+    connect(m_slave, &BaslerApi::imageReceived,
+            this, &CameraManager::onSlaveImage, Qt::QueuedConnection);
+
+    connect(m_master, &BaslerApi::rawDataReceived,
+            this, &CameraManager::onMasterRawData, Qt::QueuedConnection);
+    connect(m_slave, &BaslerApi::rawDataReceived,
+            this, &CameraManager::onSlaveRawData, Qt::QueuedConnection);
 }
 
 CameraManager::~CameraManager()
 {
-    if (m_initialized) {
-        PylonTerminate();
-        qDebug() << "Pylon SDK terminated.";
+    stop();
+
+    if (m_master) {
+        m_master->deleteLater();
+        m_master = nullptr;
+    }
+    if (m_slave) {
+        m_slave->deleteLater();
+        m_slave = nullptr;
+    }
+
+    QThreadPool::globalInstance()->waitForDone(3000);
+}
+
+void CameraManager::start()
+{
+    if (!m_master || !m_slave) return;
+
+    m_connectedCount = 0;
+    m_ready = false;
+
+    QThreadPool::globalInstance()->start(m_master);
+    QThreadPool::globalInstance()->start(m_slave);
+}
+
+void CameraManager::stop()
+{
+    if (m_master) {
+        m_master->stopGrabbing();
+    }
+    if (m_slave) {
+        m_slave->stopGrabbing();
     }
 }
 
-QList<CameraInfo> CameraManager::enumerateCameras()
+void CameraManager::onMasterConnected(bool success)
 {
-    QList<CameraInfo> cameras;
-    if (!m_initialized) {
-        qWarning() << "Pylon not initialized, cannot enumerate cameras.";
-        return cameras;
+    if (!success) {
+        emit errorOccurred("Master camera failed to connect");
+        stop(); // останавливаем обе камеры
+        return;
     }
 
-    try {
-        CTlFactory& tlFactory = CTlFactory::GetInstance();
-        DeviceInfoList_t devices;
-        if (tlFactory.EnumerateDevices(devices) == 0) {
-            qDebug() << "No cameras found.";
-            return cameras;
-        }
-
-        for (size_t i = 0; i < devices.size(); ++i) {
-            CameraInfo info;
-            info.fullName = devices[i].GetFullName();
-            info.modelName = devices[i].GetModelName();
-            info.serialNumber = devices[i].GetSerialNumber();
-            info.vendor = devices[i].GetVendorName();
-            info.deviceVersion = devices[i].GetDeviceVersion();
-            info.isAvailable = devices[i].IsUsbDriverTypeAvailable();
-
-            cameras.append(info);
-            qDebug() << "Found camera:" << info.modelName << "SN:" << info.serialNumber;
-        }
-    } catch (const GenericException &e) {
-        qCritical() << "Error enumerating cameras:" << e.what();
+    int count = m_connectedCount.fetchAndAddOrdered(1) + 1;
+    if (count == 2) {
+        QMutexLocker locker(&m_mutex);
+        m_ready = true;
+        emit ready();
     }
-
-    return cameras;
 }
 
-QImage CameraManager::grabFrame(int index, int timeoutMs)
+void CameraManager::onSlaveConnected(bool success)
 {
-    if (!m_initialized) return QImage();
+    if (!success) {
+        emit errorOccurred("Slave camera failed to connect");
+        stop();
+        return;
+    }
 
-        try {
-            CTlFactory& tlFactory = CTlFactory::GetInstance();
-            DeviceInfoList_t devices;
-            if (tlFactory.EnumerateDevices(devices) == 0 || index < 0 || index >= (int)devices.size())
-                return QImage();
+    int count = m_connectedCount.fetchAndAddOrdered(1) + 1;
+    if (count == 2) {
+        QMutexLocker locker(&m_mutex);
+        m_ready = true;
+        emit ready();
+    }
+}
 
-            // Создаём объект камеры для выбранного устройства
-            CBaslerUniversalInstantCamera camera(tlFactory.CreateDevice(devices[index]));
-            camera.Open();
+void CameraManager::onMasterError(const QString& err)
+{
+    emit errorOccurred("Master: " + err);
+    stop();
+    m_ready = false;
+}
 
-            // Захватываем ровно один кадр
-            camera.StartGrabbing(1, GrabStrategy_OneByOne);
-            CGrabResultPtr ptrGrabResult;
-            if (camera.RetrieveResult(timeoutMs, ptrGrabResult, TimeoutHandling_ThrowException)) {
-                if (ptrGrabResult->GrabSucceeded()) {
-                    uint8_t* buffer = (uint8_t*)ptrGrabResult->GetBuffer();
-                    int width = ptrGrabResult->GetWidth();
-                    int height = ptrGrabResult->GetHeight();
-                    EPixelType pixelType = ptrGrabResult->GetPixelType();
+void CameraManager::onSlaveError(const QString& err)
+{
+    emit errorOccurred("Slave: " + err);
+    stop();
+    m_ready = false;
+}
 
-                    QImage image;
-                    if (pixelType == PixelType_Mono8) {
-                        // Прямое копирование 8-битных данных
-                        image = QImage(buffer, width, height, width, QImage::Format_Grayscale8).copy();
-                    }
-                    else if (pixelType == PixelType_Mono12 || pixelType == PixelType_Mono12p) {
-                        // Конвертация 12-бит → 8 бит (сдвиг на 4 бита)
-                        QByteArray data8(width * height, Qt::Uninitialized);
-                        uint16_t* src = (uint16_t*)buffer;
-                        uint8_t* dst = (uint8_t*)data8.data();
-                        for (int i = 0; i < width * height; ++i) {
-                            dst[i] = src[i] >> 4;   // можно заменить на src[i] / 16 или другое масштабирование
-                        }
-                        image = QImage((uchar*)data8.constData(), width, height, width, QImage::Format_Grayscale8).copy();
-                    }
-                    // При необходимости добавьте обработку других форматов (Bayer, RGB и т.д.)
+void CameraManager::onMasterImage(const QImage& img)
+{
+    emit masterImageReceived(img);
+}
 
-                    camera.StopGrabbing();
-                    camera.Close();
-                    return image;
-                }
-            }
-            camera.Close();
-        } catch (const GenericException &e) {
-            qCritical() << "Error grabbing frame:" << e.what();
-        }
-        return QImage();
+void CameraManager::onSlaveImage(const QImage& img)
+{
+    emit slaveImageReceived(img);
+}
+
+void CameraManager::onMasterRawData(const QByteArray& data, int w, int h)
+{
+    emit masterRawData(data, w, h);
+}
+
+void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h)
+{
+    emit slaveRawData(data, w, h);
 }

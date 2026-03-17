@@ -3,78 +3,89 @@
 #include <QPixmap>
 #include <QImage>
 #include <QSize>
+#include <QMessageBox>
 
 BaslerWindow::BaslerWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::BaslerWindow)
-    , m_cameraManager(new CameraManager(this))
+    , m_cameraManager(nullptr)
+    , m_isRunning(false)
 {
     ui->setupUi(this);
+    statusBar()->showMessage("Not started");
 
-    if (!m_cameraManager->isInitialized()) {
-        qDebug()<<"Pylon SDK не инициализирован.";
-        return;
-    }
+    BaslerCameraParams masterParams;
+    masterParams.isMaster = true;
+    masterParams.exposureTimeAbs = 10000.0; // микросекунды
+    masterParams.gainRaw = 0.0;
+    masterParams.width = 640;
+    masterParams.height = 480;
 
-    QList<CameraInfo> cameras = m_cameraManager->enumerateCameras();
-    if (cameras.isEmpty()) {
-        qDebug()<<"Камеры не найдены.";
-        return;
-    }else{
-        qDebug() << "Найдено камер: " << cameras.size() << "\n\n";
-        m_camerasCount = cameras.size();
-        ui->labelDevicesCount->setText(QString::number(cameras.size()));
-    }
+    BaslerCameraParams slaveParams;
+    slaveParams.isMaster = false;
+    slaveParams.exposureTimeAbs = 10000.0;
+    slaveParams.gainRaw = 0.0;
+    slaveParams.width = 640;
+    slaveParams.height = 480;
+
+    m_cameraManager = new CameraManager(masterParams, slaveParams, this);
+    connect(m_cameraManager, &CameraManager::ready, this, &BaslerWindow::onManagerReady);
+    connect(m_cameraManager, &CameraManager::errorOccurred, this, &BaslerWindow::onError);
+    connect(m_cameraManager, &CameraManager::masterImageReceived, this, &BaslerWindow::updateMasterImage);
+    connect(m_cameraManager, &CameraManager::slaveImageReceived, this, &BaslerWindow::updateSlaveImage);
 }
 
 BaslerWindow::~BaslerWindow()
 {
+    if (m_cameraManager) {
+        m_cameraManager->stop();
+    }
     delete ui;
 }
 
 
-void BaslerWindow::on_pushButtonUpdate_clicked()
+void BaslerWindow::on_pushButtonStartStop_clicked()
 {
-    if (!m_cameraManager || !m_cameraManager->isInitialized()) {
-        qDebug() << "Camera manager not initialized";
-        return;
-    }
-
-    // Захватываем кадры (если камер достаточно)
-    QImage imgHS, imgOC;
-    if (m_camerasCount > 0) {
-        imgHS = m_cameraManager->grabFrame(0);   // гиперспектральная
-    }
-    if (m_camerasCount > 1) {
-        imgOC = m_cameraManager->grabFrame(1);   // обзорная
-    }
-
-    // Отображение в labelHS
-    if (!imgHS.isNull()) {
-        QSize labelSize = ui->labelHS->size();
-        QPixmap pix = QPixmap::fromImage(imgHS);
-        if (labelSize.width() > 0 && labelSize.height() > 0) {
-            pix = pix.scaled(labelSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        }
-        ui->labelHS->setPixmap(pix);
-        ui->labelHS->setAlignment(Qt::AlignCenter);
+    if (!m_isRunning) {
+        statusBar()->showMessage("Starting cameras...");
+        m_cameraManager->start();
+        ui->pushButtonStartStop->setText("Stop cameras");
+        m_isRunning = true;
     } else {
-        ui->labelHS->setText("Нет изображения");
-        ui->labelHS->setAlignment(Qt::AlignCenter);
-    }
-
-    // Отображение в labelOC
-    if (!imgOC.isNull()) {
-        QSize labelSize = ui->labelOC->size();
-        QPixmap pix = QPixmap::fromImage(imgOC);
-        if (labelSize.width() > 0 && labelSize.height() > 0) {
-            pix = pix.scaled(labelSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-        }
-        ui->labelOC->setPixmap(pix);
-        ui->labelOC->setAlignment(Qt::AlignCenter);
-    } else {
-        ui->labelOC->setText("Нет изображения");
-        ui->labelOC->setAlignment(Qt::AlignCenter);
+        m_cameraManager->stop();
+        ui->pushButtonStartStop->setText("Start cameras");
+        m_isRunning = false;
+        statusBar()->showMessage("Stopped");
     }
 }
 
+void BaslerWindow::onManagerReady()
+{
+    statusBar()->showMessage("Cameras ready and grabbing", 3000);
+}
+
+void BaslerWindow::onError(const QString& msg)
+{
+    QMessageBox::critical(this, "Camera Error", msg);
+    statusBar()->showMessage("Error: " + msg);
+    qDebug()<<"Error: " + msg;
+    ui->pushButtonStartStop->setText("Start cameras");
+    m_isRunning = false;
+}
+
+void BaslerWindow::updateMasterImage(const QImage& img)
+{
+    // Масштабируем изображение под размер лейбла с сохранением пропорций
+    QPixmap pix = QPixmap::fromImage(img);
+    ui->labelHS->setPixmap(pix.scaled(ui->labelHS->size(),
+                                        Qt::KeepAspectRatio,
+                                        Qt::SmoothTransformation));
+}
+
+void BaslerWindow::updateSlaveImage(const QImage& img)
+{
+    QPixmap pix = QPixmap::fromImage(img);
+    ui->labelOC->setPixmap(pix.scaled(ui->labelOC->size(),
+                                       Qt::KeepAspectRatio,
+                                       Qt::SmoothTransformation));
+}

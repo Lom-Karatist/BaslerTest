@@ -33,11 +33,13 @@ linux {
 }
 
 SOURCES += \
+    BaslerAPI/BaslerApi.cpp \
     BaslerAPI\CameraManager.cpp \
     main.cpp \
     BaslerWindow.cpp
 
 HEADERS += \
+    BaslerAPI/BaslerApi.h \
     BaslerWindow.h \
     BaslerAPI\CameraManager.h \
     BaslerAPI\Frame.h
