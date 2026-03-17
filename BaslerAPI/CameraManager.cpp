@@ -16,26 +16,19 @@ CameraManager::CameraManager(QObject *parent)
     BaslerCameraParams masterParams = loadParamsFromFile(QDir::currentPath() + "/HS.ini");
     BaslerCameraParams slaveParams = loadParamsFromFile(QDir::currentPath() + "/OC.ini");
 
-    m_master = new BaslerApi(true, masterParams, m_serialMaster);
-    m_slave  = new BaslerApi(false, slaveParams, m_serialSlave);
+    m_master = new BaslerApi(true, masterParams);
+    m_slave  = new BaslerApi(false, slaveParams);
     m_master->setAutoDelete(false);
     m_slave->setAutoDelete(false);
 
-    // Подключаем сигналы (используем QueuedConnection, чтобы слоты выполнялись в потоке менеджера, т.е. главном)
-    connect(m_master, &BaslerApi::connectionComplete,
-            this, &CameraManager::onMasterConnected, Qt::QueuedConnection);
-    connect(m_slave, &BaslerApi::connectionComplete,
-            this, &CameraManager::onSlaveConnected, Qt::QueuedConnection);
+    connect(m_master, &BaslerApi::connectionComplete, this, &CameraManager::onMasterConnected, Qt::QueuedConnection);
+    connect(m_slave, &BaslerApi::connectionComplete, this, &CameraManager::onSlaveConnected, Qt::QueuedConnection);
 
-    connect(m_master, &BaslerApi::sendErrorMessage,
-            this, &CameraManager::onMasterError, Qt::QueuedConnection);
-    connect(m_slave, &BaslerApi::sendErrorMessage,
-            this, &CameraManager::onSlaveError, Qt::QueuedConnection);
+    connect(m_master, &BaslerApi::sendErrorMessage, this, &CameraManager::onMasterError, Qt::QueuedConnection);
+    connect(m_slave, &BaslerApi::sendErrorMessage, this, &CameraManager::onSlaveError, Qt::QueuedConnection);
 
-    connect(m_master, &BaslerApi::rawDataReceived,
-            this, &CameraManager::onMasterRawData, Qt::QueuedConnection);
-    connect(m_slave, &BaslerApi::rawDataReceived,
-            this, &CameraManager::onSlaveRawData, Qt::QueuedConnection);
+    connect(m_master, &BaslerApi::rawDataReceived, this, &CameraManager::onMasterRawData, Qt::QueuedConnection);
+    connect(m_slave, &BaslerApi::rawDataReceived, this, &CameraManager::onSlaveRawData, Qt::QueuedConnection);
 
     QThreadPool::globalInstance()->start(m_master);
     QThreadPool::globalInstance()->start(m_slave);

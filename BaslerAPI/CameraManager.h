@@ -41,8 +41,6 @@ private:
 
     BaslerApi* m_master;
     BaslerApi* m_slave;
-    const QString m_serialMaster = "25338650";
-    const QString m_serialSlave = "25338664";
 
     QAtomicInt m_connectedCount;   // счётчик успешных подключений
     bool m_ready;                  // флаг готовности

@@ -4,7 +4,7 @@
 #include <pylon/ImageEventHandler.h>
 #include <QApplication>
 
-BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, const QString &serialNumber, QObject *parent)
+BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *parent)
     : QObject(parent)
     , m_isActive(true)
     , m_isGrabbing(false)
@@ -12,7 +12,6 @@ BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, const QStr
     , m_isMaster(isMaster)
     , m_params(params)
     , m_camera(nullptr)
-    , m_serialNumber(serialNumber)
 {
 
 }
@@ -55,7 +54,7 @@ void BaslerApi::run()
                 try {
                     m_camera->RetrieveResult(5000, m_ptrGrabResult, TimeoutHandling_ThrowException);
                     if (m_ptrGrabResult.IsValid() && m_ptrGrabResult->GrabSucceeded()) {
-                        sendRawData();
+                        processRawData();
                     } else {
                         if(m_isGrabbing.load()){
                             QString err = m_ptrGrabResult.IsValid()
@@ -118,14 +117,14 @@ bool BaslerApi::initializeCamera()
         bool found = false;
         for (size_t i = 0; i < devices.size(); ++i) {
             QString serial = devices[i].GetSerialNumber().c_str();
-            if (serial == m_serialNumber) {
+            if (serial == m_params.serialNumber) {
                 m_camera = new CBaslerUniversalInstantCamera(tlFactory.CreateDevice(devices[i]));
                 found = true;
                 break;
             }
         }
         if (!found) {
-            emit sendErrorMessage(QString("Camera with serial %1 not found.").arg(m_serialNumber));
+            emit sendErrorMessage(QString("Camera with serial %1 not found.").arg(m_params.serialNumber));
             return false;
         }
 
@@ -235,7 +234,7 @@ void BaslerApi::configureMasterSlave()
     }
 }
 
-void BaslerApi::sendRawData()
+void BaslerApi::processRawData()
 {
     QByteArray rawData((const char*)m_ptrGrabResult->GetBuffer(),
                        m_ptrGrabResult->GetImageSize());
