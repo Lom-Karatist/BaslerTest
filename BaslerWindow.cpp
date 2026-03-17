@@ -37,12 +37,16 @@ BaslerWindow::BaslerWindow(QWidget *parent)
 
 BaslerWindow::~BaslerWindow()
 {
-    if (m_cameraManager) {
-        m_cameraManager->stop();
-    }
     delete ui;
 }
 
+void BaslerWindow::closeEvent(QCloseEvent *event)
+{
+    if (m_cameraManager) {
+        m_cameraManager->stop();
+    }
+    event->accept();
+}
 
 void BaslerWindow::on_pushButtonStartStop_clicked()
 {
@@ -52,8 +56,8 @@ void BaslerWindow::on_pushButtonStartStop_clicked()
         ui->pushButtonStartStop->setText("Stop cameras");
         m_isRunning = true;
     } else {
-        m_cameraManager->stop();
-        ui->pushButtonStartStop->setText("Start cameras");
+        m_cameraManager->pause();
+        ui->pushButtonStartStop->setText("Resume cameras");
         m_isRunning = false;
         statusBar()->showMessage("Stopped");
     }

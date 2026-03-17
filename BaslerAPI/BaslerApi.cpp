@@ -2,10 +2,12 @@
 #include <QThread>
 #include <QDebug>
 #include <pylon/ImageEventHandler.h>
+#include <QApplication>
 
 BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, const QString &serialNumber, QObject *parent)
     : QObject(parent)
-    , m_isGrabbing(false)
+    , m_isActive(true)
+    , m_isGrabbing(true)
     , m_isConnected(false)
     , m_isMaster(isMaster)
     , m_params(params)
@@ -23,73 +25,93 @@ BaslerApi::~BaslerApi()
         delete m_camera;
         m_camera = nullptr;
     }
-    PylonTerminate();
 }
 
 void BaslerApi::run()
 {
     m_isConnected = initializeCamera();
     emit connectionComplete(m_isConnected);
-    if (!m_isConnected) return;
+    if (!m_isConnected) {
+        m_isActive = false;
+        return;
+    }
 
-    // Принудительно устанавливаем базовые настройки для гарантированной работы
     if (m_camera->TriggerMode.IsWritable()) {
         m_camera->TriggerMode.SetValue(TriggerMode_Off);
         qDebug() << "TriggerMode set to Off";
     }
-    if (GenApi::IsAvailable(m_camera->AcquisitionMode)) {
-        m_camera->AcquisitionMode.SetValue(AcquisitionMode_Continuous);
-        qDebug() << "AcquisitionMode set to Continuous";
-    }
 
-//    configureMasterSlave();
     setupCameraFeatures();
-
     m_camera->StartGrabbing();
-    m_isGrabbing = true;
+//    configureMasterSlave();
 
-    while (m_isGrabbing && m_camera->IsGrabbing()) {
-        try {
-            // Ждём кадр до 5 секунд
-            m_camera->RetrieveResult(5000, m_ptrGrabResult, TimeoutHandling_ThrowException);
-
-            if (m_ptrGrabResult.IsValid() && m_ptrGrabResult->GrabSucceeded()) {
-                QByteArray rawData((const char*)m_ptrGrabResult->GetBuffer(),
-                                   m_ptrGrabResult->GetImageSize());
-                emit rawDataReceived(rawData, m_ptrGrabResult->GetWidth(),
-                                     m_ptrGrabResult->GetHeight(),
-                                     m_ptrGrabResult->GetPixelType());
-            } else {
-                QString err = m_ptrGrabResult.IsValid()
-                    ? QString("Grab failed: %1").arg(QString::fromStdString(m_ptrGrabResult->GetErrorDescription().c_str()))
-                    : "Invalid grab result";
-                emit sendErrorMessage(err);
+    int i = 0;
+    while (m_isActive.load()) {
+        QApplication::processEvents();
+        if (m_isGrabbing.load()) {
+            if(!m_camera->IsGrabbing()){
+                i++;
+                qDebug()<<i;
+                startGrabbing();
+            }else{
+                try {
+                    qDebug()<<"Grabbing";
+                    m_camera->RetrieveResult(5000, m_ptrGrabResult, TimeoutHandling_ThrowException);
+                    if (m_ptrGrabResult.IsValid() && m_ptrGrabResult->GrabSucceeded()) {
+                        qDebug()<<m_ptrGrabResult->GetWidth()<<m_ptrGrabResult->GetHeight();
+                        sendRawData();
+                    } else {
+                        if(m_isGrabbing.load()){
+                            QString err = m_ptrGrabResult.IsValid()
+                                ? QString("Grab failed: %1").arg(QString::fromStdString(m_ptrGrabResult->GetErrorDescription().c_str()))
+                                : "Invalid grab result";
+                            emit sendErrorMessage(err);
+                        }
+                    }
+                } catch (const GenericException& e) {
+                    emit sendErrorMessage(QString("Pylon Exception: %1").arg(e.GetDescription()));
+                }
             }
-        } catch (const GenericException& e) {
-            emit sendErrorMessage(QString("Pylon Exception: %1").arg(e.GetDescription()));
-            // Если ошибка критическая, можно выйти из цикла
-            if (!m_isGrabbing) break;
         }
     }
 
-    m_camera->StopGrabbing();
-    m_camera->Close();
+    if (m_camera && m_camera->IsGrabbing()) {
+        m_camera->StopGrabbing();
+    }
+    if (m_camera && m_camera->IsOpen()) {
+        m_camera->Close();
+    }
 }
 
 void BaslerApi::startGrabbing()
 {
-    m_isGrabbing = true;
+    if (!m_isGrabbing.exchange(true)) {
+        if (m_camera && !m_camera->IsGrabbing() && m_camera->IsOpen()) {
+            m_camera->StartGrabbing();
+        }
+    }
+}
+
+void BaslerApi::pauseGrabbing()
+{
+    if (m_isGrabbing.exchange(false)) {
+        qDebug()<<"m_isGrabbing changed to false";
+        if (m_camera && m_camera->IsGrabbing()) {
+            m_camera->StopGrabbing();
+            qDebug()<<"Grabbing stopped";
+        }
+    }
 }
 
 void BaslerApi::stopGrabbing()
 {
-    m_isGrabbing = false;
+    pauseGrabbing();
+    m_isActive = false;
 }
 
 bool BaslerApi::initializeCamera()
 {
     try {
-        PylonInitialize();
         CTlFactory& tlFactory = CTlFactory::GetInstance();
         DeviceInfoList_t devices;
         tlFactory.EnumerateDevices(devices);
@@ -217,4 +239,13 @@ void BaslerApi::configureMasterSlave()
     } catch (const GenericException& e) {
         emit sendErrorMessage(QString("MasterSlave config error: %1").arg(e.GetDescription()));
     }
+}
+
+void BaslerApi::sendRawData()
+{
+    QByteArray rawData((const char*)m_ptrGrabResult->GetBuffer(),
+                       m_ptrGrabResult->GetImageSize());
+    emit rawDataReceived(rawData, m_ptrGrabResult->GetWidth(),
+                         m_ptrGrabResult->GetHeight(),
+                         m_ptrGrabResult->GetPixelType());
 }

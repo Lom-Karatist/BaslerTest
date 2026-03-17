@@ -17,6 +17,7 @@ public:
                            QObject *parent = nullptr);
     ~CameraManager();
     void start();
+    void pause();
     void stop();
     bool isReady() const { return m_ready; }
 

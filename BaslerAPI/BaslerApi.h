@@ -48,7 +48,9 @@ public:
     void run() override;
 
     void startGrabbing();
+    void pauseGrabbing();
     void stopGrabbing();
+
     bool isGrabbing() const { return m_isGrabbing; }
     bool isConnected() const { return m_isConnected; }
 
@@ -64,8 +66,11 @@ private:
     bool initializeCamera();
     void setupCameraFeatures();
     void configureMasterSlave();
+    void sendRawData();
 
+    std::atomic<bool> m_isActive;      // управляет жизнью потока (true - поток работает)
     std::atomic<bool> m_isGrabbing;
+
     volatile bool m_isConnected;
     bool m_isMaster;
     BaslerCameraParams m_params;

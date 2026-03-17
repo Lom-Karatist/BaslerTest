@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include <BaslerAPI/CameraManager.h>
+#include <QCloseEvent>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class BaslerWindow; }
@@ -15,6 +16,7 @@ class BaslerWindow : public QMainWindow
 public:
     BaslerWindow(QWidget *parent = nullptr);
     ~BaslerWindow();
+    void closeEvent(QCloseEvent *event) override;
 
 private slots:
     void on_pushButtonStartStop_clicked();

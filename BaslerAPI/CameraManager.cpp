@@ -12,8 +12,11 @@ CameraManager::CameraManager(const BaslerCameraParams& masterParams,
     , m_ready(false)
     , m_isImageNeeded(true)
 {
+    PylonInitialize();
     m_master = new BaslerApi(true, masterParams, m_serialMaster);
     m_slave  = new BaslerApi(false, slaveParams, m_serialSlave);
+    m_master->setAutoDelete(false);
+    m_slave->setAutoDelete(false);
 
     // Подключаем сигналы (используем QueuedConnection, чтобы слоты выполнялись в потоке менеджера, т.е. главном)
     connect(m_master, &BaslerApi::connectionComplete,
@@ -35,6 +38,29 @@ CameraManager::CameraManager(const BaslerCameraParams& masterParams,
 CameraManager::~CameraManager()
 {
     stop();
+    PylonTerminate();
+}
+
+void CameraManager::start()
+{
+    if (!m_master || !m_slave) return;
+
+    QThreadPool::globalInstance()->start(m_master);
+    QThreadPool::globalInstance()->start(m_slave);
+}
+
+void CameraManager::pause()
+{
+    if (m_master) m_master->pauseGrabbing();
+    if (m_slave) m_slave->pauseGrabbing();
+}
+
+void CameraManager::stop()
+{
+    if (m_master) m_master->stopGrabbing();
+    if (m_slave) m_slave->stopGrabbing();
+
+    QThreadPool::globalInstance()->waitForDone(2000);
 
     if (m_master) {
         m_master->deleteLater();
@@ -43,29 +69,6 @@ CameraManager::~CameraManager()
     if (m_slave) {
         m_slave->deleteLater();
         m_slave = nullptr;
-    }
-
-    QThreadPool::globalInstance()->waitForDone(5000);
-}
-
-void CameraManager::start()
-{
-    if (!m_master || !m_slave) return;
-
-    m_connectedCount = 0;
-    m_ready = false;
-
-    QThreadPool::globalInstance()->start(m_master);
-    QThreadPool::globalInstance()->start(m_slave);
-}
-
-void CameraManager::stop()
-{
-    if (m_master) {
-        m_master->stopGrabbing();
-    }
-    if (m_slave) {
-        m_slave->stopGrabbing();
     }
 }
 
