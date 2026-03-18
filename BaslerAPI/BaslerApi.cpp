@@ -163,9 +163,9 @@ void BaslerApi::setupCameraFeatures()
 
         // Экспозиция
         if (m_camera->ExposureTimeAbs.IsWritable())
-            m_camera->ExposureTimeAbs.SetValue(m_params.exposureTime);
+            m_camera->ExposureTimeAbs.SetValue(m_params.exposureTime*1000);
         else if (m_camera->ExposureTime.IsWritable())
-            m_camera->ExposureTime.SetValue(m_params.exposureTime); // для некоторых моделей
+            m_camera->ExposureTime.SetValue(m_params.exposureTime*1000); // для некоторых моделей
 
         // Gain
         if (m_camera->GainRaw.IsWritable())

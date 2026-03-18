@@ -48,7 +48,7 @@ BaslerCameraParams BaslerSettings::loadParamsFromFile()
     return params;
 }
 
-void BaslerSettings::saveParams(BaslerCameraParams &cameraParams)
+void BaslerSettings::saveParams(const BaslerCameraParams &cameraParams)
 {
     m_settings->beginGroup("Camera");
 
@@ -95,7 +95,7 @@ void BaslerSettings::saveParams(BaslerCameraParams &cameraParams)
     m_settings->sync();
 }
 
-QSettings *BaslerSettings::settings() const
+const QSettings *BaslerSettings::settings() const
 {
     return m_settings;
 }

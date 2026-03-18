@@ -43,6 +43,7 @@ SOURCES += \
 HEADERS += \
     BaslerAPI/BaslerApi.h \
     BaslerAPI/BaslerSettings.h \
+    BaslerAPI/Types.h \
     BaslerSettingsForm.h \
     BaslerWindow.h \
     BaslerAPI\CameraManager.h \

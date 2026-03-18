@@ -5,34 +5,7 @@
 #include <QObject>
 #include <QImage>
 #include <QElapsedTimer>
-#include <QElapsedTimer>
-#include <pylon/PylonIncludes.h>
-#include <pylon/BaslerUniversalInstantCamera.h>
-
-using namespace Pylon;
-using namespace Basler_UniversalCameraParams;
-
-/**
- * @brief Структура для хранения параметров камеры, загружаемых из INI-файла.
- */
-struct BaslerCameraParams {
-    QString serialNumber;           //!< Серийный номер камеры (уникальный идентификатор).
-    bool isMaster;                  //!< Флаг роли камеры: true — мастер, false — слейв.
-
-    double exposureTime;            //!< Время экспозиции в микросекундах.
-    double gain;                    //!< Усиление (gain) в условных единицах камеры.
-    double acquisitionFrameRate;    //!< Желаемая частота кадров (только для мастера).
-    int pixelFormat;                //!< Формат пикселей (например, PixelType_Mono8).
-
-    int offsetX;                    //!< Смещение по X для выделения области интереса на матрице
-    int offsetY;                    //!< Смещение по Y для выделения области интереса на матрице
-    int width;                      //!< Ширина захватываемого изображения в пикселях.
-    int height;                     //!< Высота захватываемого изображения в пикселях.
-    int binningHorizontal;          //!< Биннинг по горизонтали (от 1 до 4)
-    int binningVertical;            //!< Биннинг по вертикали (от 1 до 4)
-    BinningHorizontalModeEnums binningHorizontalMode;   //!< Режим биннинга по горизонтали
-    BinningVerticalModeEnums binningVerticalMode;       //!< Режим биннинга по вертикали
-};
+#include "Types.h"
 
 /**
  * @brief Класс для управления камерой Basler в отдельном потоке.
