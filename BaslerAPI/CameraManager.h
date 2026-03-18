@@ -19,6 +19,15 @@ public:
     void stop();
     bool isReady() const { return m_ready; }
 
+    const QString &savingPath() const;
+    void setSavingPath(const QString &newSavingPath);
+
+    const BaslerCameraParams &hsParams() const;
+    void setHsParams(const BaslerCameraParams &newHsParams);
+
+    const BaslerCameraParams &ocParams() const;
+    void setOcParams(const BaslerCameraParams &newOcParams);
+
 signals:
     void ready();
     void errorOccurred(const QString& message);
@@ -41,11 +50,19 @@ private:
 
     BaslerApi* m_master;
     BaslerApi* m_slave;
+    BaslerCameraParams m_hsParams;
+    BaslerCameraParams m_ocParams;
 
     QAtomicInt m_connectedCount;   // счётчик успешных подключений
     bool m_ready;                  // флаг готовности
     QMutex m_mutex;                // защита m_ready
     bool m_isImageNeeded;
+
+    QString m_savingPath;
 };
+
+static const QStringList m_pixelFormats = {"Mono8", "Mono12", "Mono12p"};
+static const QStringList m_binningTypes = {"1", "2", "3", "4"};
+static const QStringList m_binningModes = {"Sum", "Average"};
 
 #endif // CAMERAMANAGER_H

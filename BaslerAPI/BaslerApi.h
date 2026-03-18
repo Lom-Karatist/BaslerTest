@@ -18,12 +18,20 @@ using namespace Basler_UniversalCameraParams;
 struct BaslerCameraParams {
     QString serialNumber;           //!< Серийный номер камеры (уникальный идентификатор).
     bool isMaster;                  //!< Флаг роли камеры: true — мастер, false — слейв.
+
     double exposureTime;            //!< Время экспозиции в микросекундах.
     double gain;                    //!< Усиление (gain) в условных единицах камеры.
-    int width;                      //!< Ширина захватываемого изображения в пикселях.
-    int height;                     //!< Высота захватываемого изображения в пикселях.
     double acquisitionFrameRate;    //!< Желаемая частота кадров (только для мастера).
     int pixelFormat;                //!< Формат пикселей (например, PixelType_Mono8).
+
+    int offsetX;                    //!< Смещение по X для выделения области интереса на матрице
+    int offsetY;                    //!< Смещение по Y для выделения области интереса на матрице
+    int width;                      //!< Ширина захватываемого изображения в пикселях.
+    int height;                     //!< Высота захватываемого изображения в пикселях.
+    int binningHorizontal;          //!< Биннинг по горизонтали (от 1 до 4)
+    int binningVertical;            //!< Биннинг по вертикали (от 1 до 4)
+    int binningHorizontalMode;      //!< Режим биннинга по горизонтали
+    int binningVerticalMode;        //!< Режим биннинга по вертикали
 };
 
 /**
@@ -161,7 +169,7 @@ private:
     BaslerCameraParams m_params;    //!< Структура с текущими параметрами камеры.
 
     CBaslerUniversalInstantCamera* m_camera;    //!< Указатель на объект камеры.
-    CGrabResultPtr m_ptrGrabResult;             //!< Умный указатель на результат захвата.
+    CGrabResultPtr m_ptrGrabResult;             //!< Умный указатель на результат захвата.    
 };
 
 #endif // BASLERAPI_H

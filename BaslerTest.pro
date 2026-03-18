@@ -35,19 +35,25 @@ linux {
 SOURCES += \
     BaslerAPI/BaslerApi.cpp \
     BaslerAPI\CameraManager.cpp \
+    BaslerSettingsForm.cpp \
     main.cpp \
     BaslerWindow.cpp
 
 HEADERS += \
     BaslerAPI/BaslerApi.h \
+    BaslerSettingsForm.h \
     BaslerWindow.h \
     BaslerAPI\CameraManager.h \
     BaslerAPI\Frame.h
 
 FORMS += \
+    BaslerSettingsForm.ui \
     BaslerWindow.ui
 
 # Default rules for deployment.
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+
+RESOURCES += \
+    res.qrc

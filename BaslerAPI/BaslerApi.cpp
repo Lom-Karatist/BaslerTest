@@ -156,6 +156,10 @@ void BaslerApi::setupCameraFeatures()
             m_camera->Width.SetValue(m_params.width);
         if (m_camera->Height.IsWritable())
             m_camera->Height.SetValue(m_params.height);
+        if (m_camera->OffsetX.IsWritable())
+            m_camera->OffsetX.SetValue(m_params.offsetX);
+        if (m_camera->OffsetY.IsWritable())
+            m_camera->OffsetY.SetValue(m_params.offsetY);
 
         // Экспозиция
         if (m_camera->ExposureTimeAbs.IsWritable())

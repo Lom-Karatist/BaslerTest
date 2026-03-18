@@ -4,6 +4,7 @@
 #include <QMainWindow>
 #include <BaslerAPI/CameraManager.h>
 #include <QCloseEvent>
+#include <BaslerSettingsForm.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class BaslerWindow; }
@@ -25,7 +26,11 @@ private slots:
     void updateMasterImage(const QImage& img);
     void updateSlaveImage(const QImage& img);
 
+    void on_pushButtonOpenFolderSaving_clicked();
+
 private:
+    void setupSettingBoxes(BaslerSettingsForm *form, QString formName, BaslerCameraParams params);
+
     Ui::BaslerWindow *ui;
     CameraManager *m_cameraManager;
     bool m_isRunning;

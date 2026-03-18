@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1180</width>
-    <height>600</height>
+    <width>1226</width>
+    <height>631</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -27,7 +27,7 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>400</width>
+          <width>600</width>
           <height>300</height>
          </size>
         </property>
@@ -49,7 +49,7 @@
         </property>
         <property name="minimumSize">
          <size>
-          <width>400</width>
+          <width>600</width>
           <height>300</height>
          </size>
         </property>
@@ -64,9 +64,123 @@
      </layout>
     </item>
     <item>
+     <layout class="QHBoxLayout" name="horizontalLayout_2">
+      <item>
+       <widget class="BaslerSettingsForm" name="widgetOCSettings" native="true"/>
+      </item>
+      <item>
+       <widget class="BaslerSettingsForm" name="widgetHSSettings" native="true">
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>100</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
      <widget class="QPushButton" name="pushButtonStartStop">
       <property name="text">
        <string>Начать работу камер</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <layout class="QHBoxLayout" name="horizontalLayoutSavingPath">
+      <item>
+       <widget class="QLabel" name="labelSavingText">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>200</width>
+          <height>0</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>200</width>
+          <height>16777215</height>
+         </size>
+        </property>
+        <property name="text">
+         <string>Путь для сохранения:</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QLineEdit" name="lineEditSavingPath">
+        <property name="minimumSize">
+         <size>
+          <width>350</width>
+          <height>0</height>
+         </size>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonOpenFolderSaving">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="minimumSize">
+         <size>
+          <width>24</width>
+          <height>24</height>
+         </size>
+        </property>
+        <property name="maximumSize">
+         <size>
+          <width>24</width>
+          <height>24</height>
+         </size>
+        </property>
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="toolTip">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;Открыть проводник для выбора файла&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">#pushButtonOpenFolderSaving{
+background-image: url(:/Icons/folder.png);
+background-repeat: none;
+border:none;
+}
+#pushButtonOpenFolderSaving:pressed{
+
+	
+	border-image: url(:/Icons/folder_pressed.png);
+	
+
+	
+}
+#pushButtonOpenFolderSaving:hover{
+
+	background-image: url(:/Icons/folder_hover.png);
+
+}</string>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <widget class="QPushButton" name="pushButton">
+      <property name="text">
+       <string>Начать запись</string>
       </property>
      </widget>
     </item>
@@ -77,13 +191,21 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1180</width>
+     <width>1226</width>
      <height>21</height>
     </rect>
    </property>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>BaslerSettingsForm</class>
+   <extends>QWidget</extends>
+   <header>BaslerSettingsForm.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

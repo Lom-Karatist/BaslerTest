@@ -4,6 +4,8 @@
 #include <QImage>
 #include <QSize>
 #include <QMessageBox>
+#include <QFileInfo>
+#include <QFileDialog>
 
 BaslerWindow::BaslerWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -19,6 +21,9 @@ BaslerWindow::BaslerWindow(QWidget *parent)
     connect(m_cameraManager, &CameraManager::errorOccurred, this, &BaslerWindow::onError);
     connect(m_cameraManager, &CameraManager::masterImageReady, this, &BaslerWindow::updateMasterImage);
     connect(m_cameraManager, &CameraManager::slaveImageReady, this, &BaslerWindow::updateSlaveImage);
+
+    setupSettingBoxes(ui->widgetOCSettings, "Настройки обзорной камеры", m_cameraManager->ocParams());
+    setupSettingBoxes(ui->widgetHSSettings, "Настройки камеры гиперспектрометра",  m_cameraManager->hsParams());
 }
 
 BaslerWindow::~BaslerWindow()
@@ -77,5 +82,28 @@ void BaslerWindow::updateSlaveImage(const QImage& img)
     QPixmap pix = QPixmap::fromImage(img);
     ui->labelOC->setPixmap(pix.scaled(ui->labelOC->size(),
                                        Qt::KeepAspectRatio,
-                                       Qt::SmoothTransformation));
+                                      Qt::SmoothTransformation));
+}
+
+void BaslerWindow::setupSettingBoxes(BaslerSettingsForm *form, QString formName, BaslerCameraParams params)
+{
+    form->setFormName(formName);
+    form->setCameraParams(params);
+}
+
+void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()
+{
+    QString checkPath;
+    QDir existingDir(m_cameraManager->savingPath());
+    if(existingDir.isReadable()){
+        checkPath = QFileDialog::getExistingDirectory(this, tr("Выбор папки для сохранения"),
+                                                      m_cameraManager->savingPath(), QFileDialog::ShowDirsOnly|QFileDialog::DontResolveSymlinks);
+    }else{
+        checkPath = QFileDialog::getExistingDirectory(this, tr("Выбор папки для сохранения"),
+                                                      "/home", QFileDialog::ShowDirsOnly|QFileDialog::DontResolveSymlinks);
+    }
+    QDir checkDir(checkPath);
+    if(checkDir.isReadable()){
+        m_cameraManager->setSavingPath(checkPath);
+    }
 }
