@@ -30,8 +30,8 @@ struct BaslerCameraParams {
     int height;                     //!< Высота захватываемого изображения в пикселях.
     int binningHorizontal;          //!< Биннинг по горизонтали (от 1 до 4)
     int binningVertical;            //!< Биннинг по вертикали (от 1 до 4)
-    int binningHorizontalMode;      //!< Режим биннинга по горизонтали
-    int binningVerticalMode;        //!< Режим биннинга по вертикали
+    BinningHorizontalModeEnums binningHorizontalMode;   //!< Режим биннинга по горизонтали
+    BinningVerticalModeEnums binningVerticalMode;       //!< Режим биннинга по вертикали
 };
 
 /**

@@ -1,20 +1,21 @@
 // CameraManager.cpp
 #include "CameraManager.h"
 #include <QDebug>
-#include <QSettings>
 #include <QDir>
 
 CameraManager::CameraManager(QObject *parent)
     : QObject(parent)
     , m_master(nullptr)
     , m_slave(nullptr)
+    , m_masterSettings(this, QDir::currentPath() + "/HS.ini")
+    , m_slaveSettings(this, QDir::currentPath() + "/OC.ini")
     , m_connectedCount(0)
     , m_ready(false)
     , m_isImageNeeded(true)
 {
     PylonInitialize();
-    m_hsParams = loadParamsFromFile(QDir::currentPath() + "/HS.ini");
-    m_ocParams = loadParamsFromFile(QDir::currentPath() + "/OC.ini");
+    m_hsParams = m_masterSettings.loadParamsFromFile();
+    m_ocParams = m_slaveSettings.loadParamsFromFile();
 
     m_master = new BaslerApi(true, m_hsParams);
     m_slave  = new BaslerApi(false, m_ocParams);
@@ -132,43 +133,6 @@ void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h, int pix
     }
 }
 
-BaslerCameraParams CameraManager::loadParamsFromFile(const QString &filePath)
-{
-    BaslerCameraParams params;
-    QSettings settings(filePath, QSettings::IniFormat);
-
-    settings.beginGroup("Camera");
-    params.serialNumber = settings.value("serialNumber", "").toString();
-    params.isMaster = settings.value("isMaster", false).toBool();
-
-    params.exposureTime = settings.value("exposureTime", 10000.0).toDouble();
-    params.gain = settings.value("gain", 1.0).toDouble();
-    params.acquisitionFrameRate = settings.value("acquisitionFrameRate", 10.0).toDouble();
-    QString pixFmt = settings.value("pixelFormat", m_pixelFormats.at(0)).toString();
-    if (pixFmt == m_pixelFormats.at(0)) params.pixelFormat = PixelType_Mono8;
-    else if (pixFmt == m_pixelFormats.at(1)) params.pixelFormat = PixelType_Mono12;
-    else if (pixFmt == m_pixelFormats.at(2)) params.pixelFormat = PixelType_Mono12p;
-
-    params.width = settings.value("width", 1920).toInt();
-    params.height = settings.value("height", 1200).toInt();
-    params.offsetX = settings.value("offsetX", 0).toInt();
-    params.offsetY = settings.value("offsetY", 0).toInt();
-    params.binningHorizontal = settings.value("binningHorizontal", 1).toInt();
-    params.binningVertical = settings.value("binningVertical", 1).toInt();
-
-    QString binHMode = settings.value("binningHorizontalMode", "Average").toString();
-    if (binHMode == m_binningModes.at(1)) params.binningHorizontalMode = BinningHorizontalMode_Average;
-    else if (binHMode == m_binningModes.at(0)) params.binningHorizontalMode = BinningHorizontalMode_Sum;
-
-    QString binVMode = settings.value("binningVerticalMode", "Average").toString();
-    if (binVMode == m_binningModes.at(1)) params.binningVerticalMode = BinningVerticalMode_Average;
-    else if (binVMode == m_binningModes.at(0)) params.binningVerticalMode = BinningVerticalMode_Sum;
-
-    settings.endGroup();
-
-    return params;
-}
-
 QImage CameraManager::convertToQImage(const QByteArray &data, int width, int height, int pixelFormat)
 {
     QImage::Format format = QImage::Format_Invalid;
@@ -200,6 +164,72 @@ QImage CameraManager::convertToQImage(const QByteArray &data, int width, int hei
     return image.copy();
 }
 
+void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
+{
+    switch (type) {
+    case BaslerConstants::SettingTypes::Exposure:
+        cameraParams.exposureTime = value.toDouble();
+        break;
+    case BaslerConstants::SettingTypes::Gain:
+        cameraParams.gain = value.toDouble();
+        break;
+    case BaslerConstants::SettingTypes::AcquisitionFramerate:
+        cameraParams.acquisitionFrameRate = value.toInt();
+        break;
+    case BaslerConstants::SettingTypes::Width:
+        cameraParams.width = value.toInt();
+        break;
+    case BaslerConstants::SettingTypes::Height:
+        cameraParams.height = value.toInt();
+        break;
+    case BaslerConstants::SettingTypes::OffsetX:
+        cameraParams.offsetX = value.toInt();
+        break;
+    case BaslerConstants::SettingTypes::OffsetY:
+        cameraParams.offsetY = value.toInt();
+        break;
+    case BaslerConstants::SettingTypes::BinningHorizontal:
+        cameraParams.binningHorizontal = value.toInt();
+        break;
+    case BaslerConstants::SettingTypes::BinningVertical:
+        cameraParams.binningVertical = value.toInt();
+        break;
+    case BaslerConstants::SettingTypes::PixelFormat:
+        {
+            int index = value.toInt();
+            if (index == 0)
+                cameraParams.pixelFormat = PixelType_Mono8;
+            else if (index == 1)
+                cameraParams.pixelFormat = PixelType_Mono12;
+            else if (index == 2)
+                cameraParams.pixelFormat = PixelType_Mono12p;
+        }
+        break;
+    case BaslerConstants::SettingTypes::BinningHorizontalMode:
+        {
+            int modeIndex = value.toInt();
+            if (modeIndex == 0)
+                cameraParams.binningHorizontalMode = BinningHorizontalMode_Sum;
+            else
+                cameraParams.binningHorizontalMode = BinningHorizontalMode_Average;
+        }
+        break;
+    case BaslerConstants::SettingTypes::BinningVerticalMode:
+        {
+            int modeIndex = value.toInt();
+            if (modeIndex == 0)
+                cameraParams.binningVerticalMode = BinningVerticalMode_Sum;
+            else
+                cameraParams.binningVerticalMode = BinningVerticalMode_Average;
+        }
+        break;
+    default:
+        return;
+    }
+
+    baslerSettingsObject.saveParams(cameraParams);
+}
+
 const BaslerCameraParams &CameraManager::ocParams() const
 {
     return m_ocParams;
@@ -208,6 +238,16 @@ const BaslerCameraParams &CameraManager::ocParams() const
 void CameraManager::setOcParams(const BaslerCameraParams &newOcParams)
 {
     m_ocParams = newOcParams;
+}
+
+void CameraManager::onSettingsChanged(bool isMaster, BaslerConstants::SettingTypes type, QVariant value)
+{
+    if (isMaster) {
+        saveChangedSettings(m_masterSettings, m_hsParams, type, value);
+    } else {
+        saveChangedSettings(m_slaveSettings, m_ocParams, type, value);
+    }
+
 }
 
 const BaslerCameraParams &CameraManager::hsParams() const

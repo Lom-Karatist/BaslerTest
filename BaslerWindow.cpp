@@ -89,6 +89,7 @@ void BaslerWindow::setupSettingBoxes(BaslerSettingsForm *form, QString formName,
 {
     form->setFormName(formName);
     form->setCameraParams(params);
+    connect(form, &BaslerSettingsForm::settingsWereChanged, m_cameraManager, &CameraManager::onSettingsChanged);
 }
 
 void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()

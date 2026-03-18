@@ -6,6 +6,7 @@
 #include <QMutex>
 #include <QAtomicInt>
 #include "BaslerApi.h"
+#include "BaslerSettings.h"
 
 class CameraManager : public QObject
 {
@@ -36,6 +37,9 @@ signals:
     void masterRawData(const QByteArray& data, int w, int h);
     void slaveRawData(const QByteArray& data, int w, int h);
 
+public slots:
+    void onSettingsChanged(bool isMaster, BaslerConstants::SettingTypes type, QVariant value);
+
 private slots:
     void onMasterConnected(bool success);
     void onSlaveConnected(bool success);
@@ -45,24 +49,22 @@ private slots:
     void onSlaveRawData(const QByteArray& data, int w, int h, int pixelFormat);
 
 private:
-    static BaslerCameraParams loadParamsFromFile(const QString& filePath);
     QImage convertToQImage(const QByteArray& data, int width, int height, int pixelFormat);
+    void saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
 
     BaslerApi* m_master;
     BaslerApi* m_slave;
     BaslerCameraParams m_hsParams;
     BaslerCameraParams m_ocParams;
+    BaslerSettings m_masterSettings;
+    BaslerSettings m_slaveSettings;
 
-    QAtomicInt m_connectedCount;   // счётчик успешных подключений
+    QAtomicInt m_connectedCount;
     bool m_ready;                  // флаг готовности
     QMutex m_mutex;                // защита m_ready
     bool m_isImageNeeded;
 
     QString m_savingPath;
 };
-
-static const QStringList m_pixelFormats = {"Mono8", "Mono12", "Mono12p"};
-static const QStringList m_binningTypes = {"1", "2", "3", "4"};
-static const QStringList m_binningModes = {"Sum", "Average"};
 
 #endif // CAMERAMANAGER_H

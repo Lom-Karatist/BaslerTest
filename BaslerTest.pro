@@ -34,6 +34,7 @@ linux {
 
 SOURCES += \
     BaslerAPI/BaslerApi.cpp \
+    BaslerAPI/BaslerSettings.cpp \
     BaslerAPI\CameraManager.cpp \
     BaslerSettingsForm.cpp \
     main.cpp \
@@ -41,6 +42,7 @@ SOURCES += \
 
 HEADERS += \
     BaslerAPI/BaslerApi.h \
+    BaslerAPI/BaslerSettings.h \
     BaslerSettingsForm.h \
     BaslerWindow.h \
     BaslerAPI\CameraManager.h \
