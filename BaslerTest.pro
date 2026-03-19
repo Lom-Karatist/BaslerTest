@@ -3,6 +3,7 @@ QT       += core gui
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 CONFIG += c++11
+RC_FILE = recource.rc
 
 # You can make your code fail to compile if it uses deprecated APIs.
 # In order to do so, uncomment the following line.
@@ -47,7 +48,8 @@ HEADERS += \
     BaslerSettingsForm.h \
     BaslerWindow.h \
     BaslerAPI\CameraManager.h \
-    BaslerAPI\Frame.h
+    BaslerAPI\Frame.h \
+    version.h
 
 FORMS += \
     BaslerSettingsForm.ui \
