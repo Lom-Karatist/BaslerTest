@@ -74,9 +74,9 @@ void BaslerSettingsForm::setPixelFormat(int pixelFormat)
         ui->comboBoxPixelFormat->setCurrentIndex(index);
 }
 
-void BaslerSettingsForm::setAcquisitionFrameRate(int fps)
+void BaslerSettingsForm::setAcquisitionFrameRate(double fps)
 {
-    ui->spinBoxAcquisitionFramerate->setValue(fps);
+    ui->doubleSpinBoxAcquisitionFramerate->setValue(fps);
 }
 
 void BaslerSettingsForm::setWidth(int width)
@@ -135,36 +135,73 @@ void BaslerSettingsForm::setBinningVerticalMode(BinningVerticalModeEnums mode)
         ui->comboBoxBinningVMode->setCurrentIndex(index);
 }
 
+void BaslerSettingsForm::updateValueInGui(bool isMaster, BaslerConstants::SettingTypes settingType, QVariant value)
+{
+    if(isMaster != m_isMaster)
+        return;
+
+    switch(settingType){
+    case BaslerConstants::Exposure:
+        ui->doubleSpinBoxExpo->setValue(value.toDouble());
+        break;
+    case BaslerConstants::AcquisitionFramerate:
+        ui->doubleSpinBoxAcquisitionFramerate->setValue(value.toDouble());
+        break;
+    case BaslerConstants::Width:
+        ui->spinBoxWidth->setValue(value.toInt());
+        break;
+    case BaslerConstants::Height:
+        ui->spinBoxHeight->setValue(value.toInt());
+        break;
+    case BaslerConstants::OffsetX:
+        ui->spinBoxOffsetX->setValue(value.toInt());
+        break;
+    case BaslerConstants::OffsetY:
+        ui->spinBoxOffsetY->setValue(value.toInt());
+        break;
+    default:
+        break;
+    }
+}
+
 void BaslerSettingsForm::connectChangingSignals()
 {
-    connect(ui->doubleSpinBoxExpo, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-            this, [this](double value) {
-                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Exposure, value);
+    connect(ui->doubleSpinBoxExpo, &QDoubleSpinBox::editingFinished,
+            this, [this]() {
+                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Exposure,
+                                         ui->doubleSpinBoxExpo->value());
             });
-    connect(ui->doubleSpinBoxGain, QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-            this, [this](double value) {
-                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Gain, value);
+    connect(ui->doubleSpinBoxGain, &QDoubleSpinBox::editingFinished,
+            this, [this]() {
+                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Gain,
+                                         ui->doubleSpinBoxGain->value());
             });
-    connect(ui->spinBoxAcquisitionFramerate, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, [this](int value) {
-                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::AcquisitionFramerate, value);
+    connect(ui->doubleSpinBoxAcquisitionFramerate, &QDoubleSpinBox::editingFinished,
+            this, [this]() {
+                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::AcquisitionFramerate,
+                                         ui->doubleSpinBoxAcquisitionFramerate->value());
             });
-    connect(ui->spinBoxWidth, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, [this](int value) {
-                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Width, value);
+    connect(ui->spinBoxWidth, &QSpinBox::editingFinished,
+            this, [this]() {
+                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Width,
+                                         ui->spinBoxWidth->value());
             });
-    connect(ui->spinBoxHeight, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, [this](int value) {
-                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Height, value);
+    connect(ui->spinBoxHeight, &QSpinBox::editingFinished,
+            this, [this]() {
+                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::Height,
+                                         ui->spinBoxHeight->value());
             });
-    connect(ui->spinBoxOffsetX, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, [this](int value) {
-                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::OffsetX, value);
+    connect(ui->spinBoxOffsetX, &QSpinBox::editingFinished,
+            this, [this]() {
+                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::OffsetX,
+                                         ui->spinBoxOffsetX->value());
             });
-    connect(ui->spinBoxOffsetY, QOverload<int>::of(&QSpinBox::valueChanged),
-            this, [this](int value) {
-                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::OffsetY, value);
+    connect(ui->spinBoxOffsetY, &QSpinBox::editingFinished,
+            this, [this]() {
+                emit settingsWereChanged(m_isMaster, BaslerConstants::SettingTypes::OffsetY,
+                                         ui->spinBoxOffsetY->value());
             });
+
     connect(ui->comboBoxPixelFormat, QOverload<int>::of(&QComboBox::currentIndexChanged),
             this, [this](int /*index*/) {
                 QString text = ui->comboBoxPixelFormat->currentText();

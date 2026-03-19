@@ -62,7 +62,7 @@ public:
      * @param pixelFormat Числовое значение из перечисления EPixelType (например, PixelType_Mono8).
      */
     void setPixelFormat(int pixelFormat);
-    void setAcquisitionFrameRate(int fps);
+    void setAcquisitionFrameRate(double fps);
     void setWidth(int width);
     void setHeight(int height);
     void setOffsetX(int offsetX);
@@ -72,6 +72,9 @@ public:
     void setBinningHorizontalMode(BinningHorizontalModeEnums mode);
     void setBinningVerticalMode(BinningVerticalModeEnums mode);
     /// @}
+
+public slots:
+    void updateValueInGui(bool isMaster, BaslerConstants::SettingTypes settingType, QVariant value);
 
 signals:
     /**

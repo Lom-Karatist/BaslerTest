@@ -70,7 +70,6 @@ void BaslerWindow::onError(const QString& msg)
 
 void BaslerWindow::updateMasterImage(const QImage& img)
 {
-    // Масштабируем изображение под размер лейбла с сохранением пропорций
     QPixmap pix = QPixmap::fromImage(img);
     ui->labelHS->setPixmap(pix.scaled(ui->labelHS->size(),
                                         Qt::KeepAspectRatio,
@@ -90,6 +89,7 @@ void BaslerWindow::setupSettingBoxes(BaslerSettingsForm *form, QString formName,
     form->setFormName(formName);
     form->setCameraParams(params);
     connect(form, &BaslerSettingsForm::settingsWereChanged, m_cameraManager, &CameraManager::onSettingsChanged);
+    connect(m_cameraManager, &CameraManager::forceParameterChanging, form, &BaslerSettingsForm::updateValueInGui);
 }
 
 void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()

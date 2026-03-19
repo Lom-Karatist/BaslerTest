@@ -168,66 +168,139 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
 {
     switch (type) {
     case BaslerConstants::SettingTypes::Exposure:
-        cameraParams.exposureTime = value.toDouble();
+    case BaslerConstants::SettingTypes::AcquisitionFramerate:
+        processExposureAndFramerateChanging(cameraParams, type, value);
         break;
     case BaslerConstants::SettingTypes::Gain:
         cameraParams.gain = value.toDouble();
         break;
-    case BaslerConstants::SettingTypes::AcquisitionFramerate:
-        cameraParams.acquisitionFrameRate = value.toInt();
-        break;
     case BaslerConstants::SettingTypes::Width:
-        cameraParams.width = value.toInt();
+    case BaslerConstants::SettingTypes::OffsetX:
+    case BaslerConstants::SettingTypes::BinningHorizontal:
+        processRoiAndBinningX(cameraParams, type, value);
+        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Width, cameraParams.width);
+        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::OffsetX, cameraParams.offsetX);
         break;
     case BaslerConstants::SettingTypes::Height:
-        cameraParams.height = value.toInt();
-        break;
-    case BaslerConstants::SettingTypes::OffsetX:
-        cameraParams.offsetX = value.toInt();
-        break;
     case BaslerConstants::SettingTypes::OffsetY:
-        cameraParams.offsetY = value.toInt();
-        break;
-    case BaslerConstants::SettingTypes::BinningHorizontal:
-        cameraParams.binningHorizontal = value.toInt();
-        break;
     case BaslerConstants::SettingTypes::BinningVertical:
-        cameraParams.binningVertical = value.toInt();
+        processRoiAndBinningY(cameraParams, type, value);
+        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Height, cameraParams.height);
+        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::OffsetY, cameraParams.offsetY);
         break;
+
     case BaslerConstants::SettingTypes::PixelFormat:
-        {
-            int index = value.toInt();
-            if (index == 0)
-                cameraParams.pixelFormat = PixelType_Mono8;
-            else if (index == 1)
-                cameraParams.pixelFormat = PixelType_Mono12;
-            else if (index == 2)
-                cameraParams.pixelFormat = PixelType_Mono12p;
-        }
+    {
+        int index = value.toInt();
+        if (index == 0)
+            cameraParams.pixelFormat = PixelType_Mono8;
+        else if (index == 1)
+            cameraParams.pixelFormat = PixelType_Mono12;
+        else if (index == 2)
+            cameraParams.pixelFormat = PixelType_Mono12p;
+    }
         break;
     case BaslerConstants::SettingTypes::BinningHorizontalMode:
-        {
-            int modeIndex = value.toInt();
-            if (modeIndex == 0)
-                cameraParams.binningHorizontalMode = BinningHorizontalMode_Sum;
-            else
-                cameraParams.binningHorizontalMode = BinningHorizontalMode_Average;
-        }
+    {
+        int modeIndex = value.toInt();
+        if (modeIndex == 0)
+            cameraParams.binningHorizontalMode = BinningHorizontalMode_Sum;
+        else
+            cameraParams.binningHorizontalMode = BinningHorizontalMode_Average;
+    }
         break;
     case BaslerConstants::SettingTypes::BinningVerticalMode:
-        {
-            int modeIndex = value.toInt();
-            if (modeIndex == 0)
-                cameraParams.binningVerticalMode = BinningVerticalMode_Sum;
-            else
-                cameraParams.binningVerticalMode = BinningVerticalMode_Average;
-        }
+    {
+        int modeIndex = value.toInt();
+        if (modeIndex == 0)
+            cameraParams.binningVerticalMode = BinningVerticalMode_Sum;
+        else
+            cameraParams.binningVerticalMode = BinningVerticalMode_Average;
+    }
         break;
     default:
         return;
     }
 
     baslerSettingsObject.saveParams(cameraParams);
+}
+
+void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
+{
+    const double safetyMargin = 0.99;
+
+    if(type == BaslerConstants::SettingTypes::AcquisitionFramerate){
+        cameraParams.acquisitionFrameRate = value.toDouble();
+        double framePeriodMs = 1e3 / cameraParams.acquisitionFrameRate;
+        double maxExposureMs = framePeriodMs * safetyMargin;
+        if (cameraParams.exposureTime > maxExposureMs) {
+            cameraParams.exposureTime = maxExposureMs;
+            emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Exposure, cameraParams.exposureTime);
+            qDebug() << "Exposure changed to" << cameraParams.exposureTime << "ms due to framerate limit";
+        }
+    }else{
+        cameraParams.exposureTime = value.toDouble();
+        double minRequiredPeriodMs = cameraParams.exposureTime / safetyMargin;
+        double maxAllowedFramerate = 1000.0 / minRequiredPeriodMs;
+        if (cameraParams.acquisitionFrameRate > maxAllowedFramerate) {
+            cameraParams.acquisitionFrameRate = maxAllowedFramerate;
+            emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::AcquisitionFramerate, cameraParams.acquisitionFrameRate);
+            qDebug() << "Framerate adjusted to" << cameraParams.acquisitionFrameRate << "fps due to exposure limit";
+        }
+    }
+}
+
+void CameraManager::processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
+{
+    calcRoiOnAxe(cameraParams.width, cameraParams.offsetX, cameraParams.binningHorizontal,
+                 type, value, MAX_WIDTH);
+    cameraParams.offsetX = (cameraParams.offsetX / 4) * 4;
+}
+
+void CameraManager::processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
+{
+    calcRoiOnAxe(cameraParams.height, cameraParams.offsetY, cameraParams.binningVertical,
+                 type, value, MAX_HEIGHT);
+    cameraParams.offsetY = (cameraParams.offsetY / 2) * 2;
+}
+
+void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize)
+{
+    qDebug()<<"---------Changing binning to "<<value.toInt();
+    bool isValueRising;
+
+    int sizeEdited, offsetEdited;
+    if (changedType == BaslerConstants::BinningHorizontal || changedType == BaslerConstants::BinningVertical) {
+//        if(value.toInt() > binning) isValueRising = true;
+//        else                        isValueRising = false;
+
+        double physSize = static_cast<double>(size) * binning;
+        double physOffset = static_cast<double>(offset) * binning;
+        binning = qBound(1, value.toInt(), 4);
+
+        sizeEdited = qRound(physSize / binning);
+        int maxSizeOut = maxSize / binning;
+        sizeEdited = qMin(sizeEdited, maxSizeOut);
+
+        offsetEdited = physOffset / binning;
+        int maxOffset = maxSize - sizeEdited * binning;
+        offsetEdited = qMin(offsetEdited, maxOffset);
+    }
+
+//    int maxSizeOut = maxSize / binning;
+
+//    if (changedType == BaslerConstants::Width || changedType == BaslerConstants::Height) {
+
+//        int maxOffsetPhys = maxSize - size * binning;
+//    }
+
+    size = sizeEdited;
+    offset = offsetEdited;
+
+    int maxOffsetPhys = maxSize - size * binning;
+    offset = qBound(0, offset, maxOffsetPhys);
+
+    qDebug()<<size<<offset<<binning;
 }
 
 const BaslerCameraParams &CameraManager::ocParams() const
@@ -247,7 +320,6 @@ void CameraManager::onSettingsChanged(bool isMaster, BaslerConstants::SettingTyp
     } else {
         saveChangedSettings(m_slaveSettings, m_ocParams, type, value);
     }
-
 }
 
 const BaslerCameraParams &CameraManager::hsParams() const

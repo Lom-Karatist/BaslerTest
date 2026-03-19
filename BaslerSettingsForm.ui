@@ -61,6 +61,9 @@
             <height>16777215</height>
            </size>
           </property>
+          <property name="maximum">
+           <double>500.000000000000000</double>
+          </property>
          </widget>
         </item>
         <item>
@@ -82,9 +85,9 @@
        </layout>
       </item>
       <item row="0" column="1">
-       <layout class="QHBoxLayout" name="horizontalLayout">
+       <layout class="QHBoxLayout" name="horizontalLayout_6">
         <item>
-         <widget class="QLabel" name="label_2">
+         <widget class="QLabel" name="label_4">
           <property name="minimumSize">
            <size>
             <width>100</width>
@@ -92,12 +95,12 @@
            </size>
           </property>
           <property name="text">
-           <string>Усиление (Gain):</string>
+           <string>Частота кадров:</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QDoubleSpinBox" name="doubleSpinBoxGain">
+         <widget class="QDoubleSpinBox" name="doubleSpinBoxAcquisitionFramerate">
           <property name="minimumSize">
            <size>
             <width>100</width>
@@ -164,9 +167,9 @@
        </layout>
       </item>
       <item row="1" column="1">
-       <layout class="QHBoxLayout" name="horizontalLayout_6">
+       <layout class="QHBoxLayout" name="horizontalLayout">
         <item>
-         <widget class="QLabel" name="label_4">
+         <widget class="QLabel" name="label_2">
           <property name="minimumSize">
            <size>
             <width>100</width>
@@ -174,12 +177,12 @@
            </size>
           </property>
           <property name="text">
-           <string>Частота кадров:</string>
+           <string>Усиление (Gain):</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QSpinBox" name="spinBoxAcquisitionFramerate">
+         <widget class="QDoubleSpinBox" name="doubleSpinBoxGain">
           <property name="minimumSize">
            <size>
             <width>100</width>
@@ -280,6 +283,12 @@
             <height>16777215</height>
            </size>
           </property>
+          <property name="maximum">
+           <number>968</number>
+          </property>
+          <property name="singleStep">
+           <number>4</number>
+          </property>
          </widget>
         </item>
        </layout>
@@ -367,6 +376,12 @@
             <width>100</width>
             <height>16777215</height>
            </size>
+          </property>
+          <property name="maximum">
+           <number>608</number>
+          </property>
+          <property name="singleStep">
+           <number>2</number>
           </property>
          </widget>
         </item>

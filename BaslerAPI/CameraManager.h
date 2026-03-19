@@ -36,6 +36,7 @@ signals:
     void slaveImageReady(const QImage& image);
     void masterRawData(const QByteArray& data, int w, int h);
     void slaveRawData(const QByteArray& data, int w, int h);
+    void forceParameterChanging(bool isMaster, BaslerConstants::SettingTypes settingType, QVariant value);
 
 public slots:
     void onSettingsChanged(bool isMaster, BaslerConstants::SettingTypes type, QVariant value);
@@ -51,6 +52,10 @@ private slots:
 private:
     QImage convertToQImage(const QByteArray& data, int width, int height, int pixelFormat);
     void saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
+    void processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
+    void processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
+    void processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
+    void calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize);
 
     BaslerApi* m_master;
     BaslerApi* m_slave;
@@ -65,6 +70,9 @@ private:
     bool m_isImageNeeded;
 
     QString m_savingPath;
+
+    static const int MAX_WIDTH = 1936;
+    static const int MAX_HEIGHT = 1216;
 };
 
 #endif // CAMERAMANAGER_H
