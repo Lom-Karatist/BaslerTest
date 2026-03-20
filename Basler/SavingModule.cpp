@@ -3,6 +3,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QFile>
+#include <QtConcurrent/QtConcurrent>
 
 SavingModule::SavingModule(QObject *parent)
     : QObject{parent}
@@ -24,6 +25,47 @@ void SavingModule::setSavingPath(const QString &newSavingPath)
 void SavingModule::setFormat(BaslerConstants::SavingFormat newFormat)
 {
     m_format = newFormat;
+}
+
+void SavingModule::saveDataAsync(const QByteArray &data, int width, int height, int pixelFormat, const QString &prefix, const QString &timeStamp)
+{
+    switch(m_format){
+    case BaslerConstants::Bmp:
+        (void) QtConcurrent::run(&SavingModule::saveAsBmpAsync,
+                                data, width, height, pixelFormat, prefix,
+                                timeStamp, m_savingPath);
+        break;
+    case BaslerConstants::Binary:
+        (void) QtConcurrent::run(&SavingModule::saveAsBinaryAsync,
+                                data, prefix, timeStamp, m_savingPath);
+        break;
+    }
+}
+
+void SavingModule::saveAsBmpAsync(const QByteArray &data, int width, int height, int pixelFormat, const QString &prefix, const QString timeStamp, const QString savingPath)
+{
+    QImage img = convertToQImage(data, width, height, pixelFormat);
+    if (img.isNull()) {
+        qWarning() << "Failed to convert to QImage for BMP save";
+        return;
+    }
+
+    QString fileName = QString("%1/%2_%3.bmp").arg(savingPath).arg(prefix).arg(timeStamp);
+    if (!img.save(fileName, "BMP")) {
+        qWarning() << "Failed to save BMP:" << fileName;
+    }
+}
+
+void SavingModule::saveAsBinaryAsync(const QByteArray &data, const QString &prefix, const QString timeStamp, const QString savingPath)
+{
+    QString fileName = QString("%1/%2_%3.raw").arg(savingPath).arg(prefix).arg(timeStamp);
+    QFile file(fileName);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(data);
+        file.close();
+    } else {
+        qWarning() << "Failed to save raw data:" << fileName;
+    }
 }
 
 void SavingModule::saveData(const QByteArray &data, int width, int height, int pixelFormat, QString appendix, QString timeStamp)

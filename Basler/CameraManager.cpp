@@ -130,9 +130,8 @@ void CameraManager::onMasterRawData(const QByteArray& data, int w, int h, int pi
     if (!img.isNull() && m_isImageNeeded) {
         emit masterImageReady(img);
     }
-    qDebug()<<m_savingModule.isNeedToSave();
     if(m_savingModule.isNeedToSave()){
-        m_savingModule.saveData(data, w, h, pixelFormat, "/master", m_frameTimeStamp);
+        m_savingModule.saveDataAsync(data, w, h, pixelFormat, "/master", m_frameTimeStamp);
     }
 }
 
@@ -144,7 +143,9 @@ void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h, int pix
     }
     if(m_savingModule.isNeedToSave()){
         m_frameTimeStamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss_zzz");
-        m_savingModule.saveData(data, w, h, pixelFormat, "/slave", m_frameTimeStamp);
+        if (m_savingModule.isNeedToSave()) {
+            m_savingModule.saveDataAsync(data, w, h, pixelFormat, "/slave", m_frameTimeStamp);
+        }
     }
 }
 
@@ -283,7 +284,6 @@ int CameraManager::maxOutSize(int maxSize, int binning)
 void CameraManager::setIsNeedToSave(bool newIsNeedToSave)
 {
     m_savingModule.setIsNeedToSave(newIsNeedToSave);
-    qDebug()<<"******Changing state to:"<<m_savingModule.isNeedToSave();
 }
 
 const BaslerCameraParams &CameraManager::ocParams() const

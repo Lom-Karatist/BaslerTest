@@ -121,12 +121,10 @@ void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()
 
 void BaslerWindow::on_pushButtonSaving_clicked()
 {
-    if(ui->pushButtonSaving->isChecked()){        
-        qDebug()<<"******START!";
+    if(ui->pushButtonSaving->isChecked()){
         ui->pushButtonSaving->setText("Остановить запись");
         m_cameraManager->setIsNeedToSave(true);
     }else{
-        qDebug()<<"******STOP!";
         ui->pushButtonSaving->setText("Начать запись");
         m_cameraManager->setIsNeedToSave(false);
     }
