@@ -56,6 +56,7 @@ private:
     void processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
     void processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
     void calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize);
+    inline int maxOutSize(int maxSize, int binning);
 
     BaslerApi* m_master;
     BaslerApi* m_slave;

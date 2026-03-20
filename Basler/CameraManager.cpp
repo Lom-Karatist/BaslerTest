@@ -266,41 +266,34 @@ void CameraManager::processRoiAndBinningY(BaslerCameraParams &cameraParams, Basl
 
 void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize)
 {
-    qDebug()<<"---------Changing binning to "<<value.toInt();
-    bool isValueRising;
-
-    int sizeEdited, offsetEdited;
     if (changedType == BaslerConstants::BinningHorizontal || changedType == BaslerConstants::BinningVertical) {
-//        if(value.toInt() > binning) isValueRising = true;
-//        else                        isValueRising = false;
-
         double physSize = static_cast<double>(size) * binning;
         double physOffset = static_cast<double>(offset) * binning;
         binning = qBound(1, value.toInt(), 4);
 
-        sizeEdited = qRound(physSize / binning);
-        int maxSizeOut = maxSize / binning;
-        sizeEdited = qMin(sizeEdited, maxSizeOut);
+        int desiredSize = qRound(physSize / binning);
+        int desiredOffset = physOffset / binning;
 
-        offsetEdited = physOffset / binning;
-        int maxOffset = maxSize - sizeEdited * binning;
-        offsetEdited = qMin(offsetEdited, maxOffset);
+        size = qMin(desiredSize, maxOutSize(maxSize, binning));
+        int maxOffset = maxSize - desiredSize * binning;
+        offset = qMin(desiredOffset, maxOffset);
+    }else if (changedType == BaslerConstants::Width || changedType == BaslerConstants::Height) {
+        int oldSize = size;
+        size = qBound(1, value.toInt(), maxOutSize(maxSize, binning));
+
+        double scale = static_cast<double>(size) / oldSize;
+        int neededOffset = scale*offset;
+        int maxOffset = maxSize - size * binning;
+        offset = qBound(0, neededOffset, maxOffset);
+    }else if (changedType == BaslerConstants::OffsetX  || changedType == BaslerConstants::OffsetY) {
+        int maxOffset = maxSize - size * binning;
+        offset = qBound(0, value.toInt(), maxOffset);
     }
+}
 
-//    int maxSizeOut = maxSize / binning;
-
-//    if (changedType == BaslerConstants::Width || changedType == BaslerConstants::Height) {
-
-//        int maxOffsetPhys = maxSize - size * binning;
-//    }
-
-    size = sizeEdited;
-    offset = offsetEdited;
-
-    int maxOffsetPhys = maxSize - size * binning;
-    offset = qBound(0, offset, maxOffsetPhys);
-
-    qDebug()<<size<<offset<<binning;
+int CameraManager::maxOutSize(int maxSize, int binning)
+{
+    return maxSize / binning;
 }
 
 const BaslerCameraParams &CameraManager::ocParams() const

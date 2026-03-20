@@ -2,7 +2,7 @@
 #define BASLERSETTINGSFORM_H
 
 #include <QWidget>
-#include <BaslerAPI/CameraManager.h>
+#include <Basler/CameraManager.h>
 
 namespace Ui {
 class BaslerSettingsForm;

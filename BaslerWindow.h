@@ -2,7 +2,7 @@
 #define BASLERWINDOW_H
 
 #include <QMainWindow>
-#include <BaslerAPI/CameraManager.h>
+#include <Basler/CameraManager.h>
 #include <QCloseEvent>
 #include <BaslerSettingsForm.h>
 
