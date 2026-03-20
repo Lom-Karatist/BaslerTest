@@ -21,16 +21,22 @@ linux {
 }
 
 SOURCES += \
+    BaseTools/IniFileLoader.cpp \
+    BaseTools/QrcFilesRestorer.cpp \
     Basler/BaslerApi.cpp \
     Basler/BaslerSettings.cpp \
     Basler/CameraManager.cpp \
+    Basler/SavingModule.cpp \
     BaslerSettingsForm.cpp \
     main.cpp \
     BaslerWindow.cpp
 
 HEADERS += \
+    BaseTools/IniFileLoader.h \
+    BaseTools/QrcFilesRestorer.h \
     Basler/BaslerApi.h \
     Basler/BaslerSettings.h \
+    Basler/SavingModule.h \
     Basler/Types.h \
     BaslerSettingsForm.h \
     BaslerWindow.h \

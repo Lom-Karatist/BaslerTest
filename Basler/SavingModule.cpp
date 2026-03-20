@@ -1,0 +1,111 @@
+#include "SavingModule.h"
+#include <QDir>
+#include <QDateTime>
+#include <QDebug>
+#include <QFile>
+
+SavingModule::SavingModule(QObject *parent)
+    : QObject{parent}
+    , m_isNeedToSave(false)
+    , m_format(BaslerConstants::Bmp)
+{
+
+}
+
+void SavingModule::setSavingPath(const QString &newSavingPath)
+{
+    m_savingPath = newSavingPath;
+    QDir dir(m_savingPath);
+    if (!dir.exists()) {
+        dir.mkpath(".");
+    }
+}
+
+void SavingModule::setFormat(BaslerConstants::SavingFormat newFormat)
+{
+    m_format = newFormat;
+}
+
+void SavingModule::saveData(const QByteArray &data, int width, int height, int pixelFormat, QString appendix, QString timeStamp)
+{
+    switch(m_format){
+    case BaslerConstants::Bmp:
+        saveAsBmp(data, width, height, pixelFormat, appendix, timeStamp);
+        break;
+    case BaslerConstants::Binary:
+        saveAsBinary(data, appendix, timeStamp);
+        break;
+    }
+}
+
+void SavingModule::saveAsBmp(const QByteArray &data, int width, int height, int pixelFormat, const QString &prefix, QString timeStamp)
+{
+    QImage img = convertToQImage(data, width, height, pixelFormat);
+    if (img.isNull()) {
+        qWarning() << "Failed to convert to QImage for BMP save";
+        return;
+    }
+
+    QString fileName = generateFileName(prefix, timeStamp) + ".bmp";
+    if (!img.save(fileName, "BMP")) {
+        qWarning() << "Failed to save BMP:" << fileName;
+    }
+}
+
+void SavingModule::saveAsBinary(const QByteArray &data, const QString &prefix, QString timeStamp)
+{
+    QString fileName = generateFileName(prefix,timeStamp) + ".raw";
+    QFile file(fileName);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(data);
+        file.close();
+    } else {
+        qWarning() << "Failed to save raw data:" << fileName;
+    }
+}
+
+QString SavingModule::generateFileName(const QString &prefix, QString timeStamp) const
+{
+    return QString("%1/%2_%3").arg(m_savingPath).arg(prefix).arg(timeStamp);
+}
+
+QImage SavingModule::convertToQImage(const QByteArray &data, int width, int height, int pixelFormat)
+{
+    QImage::Format format = QImage::Format_Invalid;
+    int bytesPerPixel = 0;
+
+    switch (pixelFormat) {
+    case PixelType_Mono8:
+        format = QImage::Format_Grayscale8;
+        bytesPerPixel = 1;
+        break;
+    case PixelType_Mono12:
+    case PixelType_Mono16:
+        format = QImage::Format_Grayscale16;
+        bytesPerPixel = 2;
+        break;
+    default:
+        return QImage();
+    }
+
+    if (format == QImage::Format_Invalid) return QImage();
+
+    if (data.size() != width * height * bytesPerPixel) {
+        qWarning() << "Data size mismatch";
+        return QImage();
+    }
+
+    QImage image(reinterpret_cast<const uchar*>(data.constData()), width, height,
+                 width * bytesPerPixel, format);
+    return image.copy(); // независимая копия
+}
+
+bool SavingModule::isNeedToSave() const
+{
+    return m_isNeedToSave;
+}
+
+void SavingModule::setIsNeedToSave(bool newIsNeedToSave)
+{
+    m_isNeedToSave = newIsNeedToSave;
+}

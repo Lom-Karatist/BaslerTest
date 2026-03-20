@@ -7,6 +7,7 @@
 #include <QAtomicInt>
 #include "BaslerApi.h"
 #include "BaslerSettings.h"
+#include "SavingModule.h"
 
 class CameraManager : public QObject
 {
@@ -20,14 +21,15 @@ public:
     void stop();
     bool isReady() const { return m_ready; }
 
-    const QString &savingPath() const;
-    void setSavingPath(const QString &newSavingPath);
+    void setSavingPath (const QString path);
 
     const BaslerCameraParams &hsParams() const;
     void setHsParams(const BaslerCameraParams &newHsParams);
 
     const BaslerCameraParams &ocParams() const;
     void setOcParams(const BaslerCameraParams &newOcParams);
+
+    void setIsNeedToSave(bool newIsNeedToSave);
 
 signals:
     void ready();
@@ -40,6 +42,7 @@ signals:
 
 public slots:
     void onSettingsChanged(bool isMaster, BaslerConstants::SettingTypes type, QVariant value);
+    void onSavingModeChanged(const int savingFormat);
 
 private slots:
     void onMasterConnected(bool success);
@@ -50,7 +53,6 @@ private slots:
     void onSlaveRawData(const QByteArray& data, int w, int h, int pixelFormat);
 
 private:
-    QImage convertToQImage(const QByteArray& data, int width, int height, int pixelFormat);
     void saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
     void processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
     void processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
@@ -70,7 +72,8 @@ private:
     QMutex m_mutex;                // защита m_ready
     bool m_isImageNeeded;
 
-    QString m_savingPath;
+    SavingModule m_savingModule;
+    QString m_frameTimeStamp;
 
     static const int MAX_WIDTH = 1936;
     static const int MAX_HEIGHT = 1216;

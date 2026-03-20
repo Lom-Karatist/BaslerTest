@@ -22,6 +22,8 @@ CameraManager::CameraManager(QObject *parent)
     m_master->setAutoDelete(false);
     m_slave->setAutoDelete(false);
 
+    m_savingModule.setSavingPath(QDir::currentPath());
+
     connect(m_master, &BaslerApi::connectionComplete, this, &CameraManager::onMasterConnected, Qt::QueuedConnection);
     connect(m_slave, &BaslerApi::connectionComplete, this, &CameraManager::onSlaveConnected, Qt::QueuedConnection);
 
@@ -69,6 +71,11 @@ void CameraManager::stop()
         m_slave->deleteLater();
         m_slave = nullptr;
     }
+}
+
+void CameraManager::setSavingPath(const QString path)
+{
+    m_savingModule.setSavingPath(path);
 }
 
 void CameraManager::onMasterConnected(bool success)
@@ -119,49 +126,26 @@ void CameraManager::onSlaveError(const QString& err)
 
 void CameraManager::onMasterRawData(const QByteArray& data, int w, int h, int pixelFormat)
 {
-    QImage img = convertToQImage(data, w, h, pixelFormat);
+    QImage img = SavingModule::convertToQImage(data, w, h, pixelFormat);
     if (!img.isNull() && m_isImageNeeded) {
         emit masterImageReady(img);
+    }
+    qDebug()<<m_savingModule.isNeedToSave();
+    if(m_savingModule.isNeedToSave()){
+        m_savingModule.saveData(data, w, h, pixelFormat, "/master", m_frameTimeStamp);
     }
 }
 
 void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h, int pixelFormat)
 {
-    QImage img = convertToQImage(data, w, h, pixelFormat);
+    QImage img = SavingModule::convertToQImage(data, w, h, pixelFormat);
     if (!img.isNull()) {
         emit slaveImageReady(img);
     }
-}
-
-QImage CameraManager::convertToQImage(const QByteArray &data, int width, int height, int pixelFormat)
-{
-    QImage::Format format = QImage::Format_Invalid;
-    int bytesPerPixel = 0;
-
-    switch (pixelFormat) {
-    case PixelType_Mono8:
-        format = QImage::Format_Grayscale8;
-        bytesPerPixel = 1;
-        break;
-    case PixelType_Mono12:
-    case PixelType_Mono16:
-        format = QImage::Format_Grayscale16;
-        bytesPerPixel = 2;
-        break;
-    default:
-        qWarning() << "Unsupported pixel format:" << pixelFormat;
-        return QImage();
+    if(m_savingModule.isNeedToSave()){
+        m_frameTimeStamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss_zzz");
+        m_savingModule.saveData(data, w, h, pixelFormat, "/slave", m_frameTimeStamp);
     }
-
-    if (format == QImage::Format_Invalid) return QImage();
-
-    if (data.size() != width * height * bytesPerPixel) {
-        qWarning() << "Data size mismatch";
-        return QImage();
-    }
-
-    QImage image(reinterpret_cast<const uchar*>(data.constData()), width, height, width * bytesPerPixel, format);
-    return image.copy();
 }
 
 void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
@@ -296,6 +280,12 @@ int CameraManager::maxOutSize(int maxSize, int binning)
     return maxSize / binning;
 }
 
+void CameraManager::setIsNeedToSave(bool newIsNeedToSave)
+{
+    m_savingModule.setIsNeedToSave(newIsNeedToSave);
+    qDebug()<<"******Changing state to:"<<m_savingModule.isNeedToSave();
+}
+
 const BaslerCameraParams &CameraManager::ocParams() const
 {
     return m_ocParams;
@@ -315,6 +305,15 @@ void CameraManager::onSettingsChanged(bool isMaster, BaslerConstants::SettingTyp
     }
 }
 
+void CameraManager::onSavingModeChanged(const int savingFormat)
+{
+    switch(savingFormat){
+    case 1:     m_savingModule.setFormat(BaslerConstants::SavingFormat::Binary);    break;
+    case 0:     m_savingModule.setFormat(BaslerConstants::SavingFormat::Bmp);       break;
+    default:    break;
+    }
+}
+
 const BaslerCameraParams &CameraManager::hsParams() const
 {
     return m_hsParams;
@@ -323,14 +322,4 @@ const BaslerCameraParams &CameraManager::hsParams() const
 void CameraManager::setHsParams(const BaslerCameraParams &newHsParams)
 {
     m_hsParams = newHsParams;
-}
-
-const QString &CameraManager::savingPath() const
-{
-    return m_savingPath;
-}
-
-void CameraManager::setSavingPath(const QString &newSavingPath)
-{
-    m_savingPath = newSavingPath;
 }

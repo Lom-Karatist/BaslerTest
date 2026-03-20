@@ -6,6 +6,9 @@
 #include <QMessageBox>
 #include <QFileInfo>
 #include <QFileDialog>
+#include <QStyleFactory>
+#include "version.h"
+#include <BaseTools/IniFileLoader.h>
 
 BaslerWindow::BaslerWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -13,8 +16,7 @@ BaslerWindow::BaslerWindow(QWidget *parent)
     , m_cameraManager(nullptr)
     , m_isRunning(false)
 {
-    ui->setupUi(this);
-    statusBar()->showMessage("Not started");
+    setupProject();
 
     m_cameraManager = new CameraManager(this);
     connect(m_cameraManager, &CameraManager::ready, this, &BaslerWindow::onManagerReady);
@@ -24,6 +26,12 @@ BaslerWindow::BaslerWindow(QWidget *parent)
 
     setupSettingBoxes(ui->widgetOCSettings, "Настройки обзорной камеры", m_cameraManager->ocParams());
     setupSettingBoxes(ui->widgetHSSettings, "Настройки камеры гиперспектрометра",  m_cameraManager->hsParams());
+
+    m_saveFormatGroup = new QButtonGroup(this);
+    m_saveFormatGroup->addButton(ui->radioButtonSaveBmp, 0);
+    m_saveFormatGroup->addButton(ui->radioButtonSaveBinary, 1);
+    connect(m_saveFormatGroup, &QButtonGroup::idClicked, m_cameraManager, &CameraManager::onSavingModeChanged);
+    m_cameraManager->setSavingPath(ui->lineEditSavingPath->text());
 }
 
 BaslerWindow::~BaslerWindow()
@@ -95,16 +103,43 @@ void BaslerWindow::setupSettingBoxes(BaslerSettingsForm *form, QString formName,
 void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()
 {
     QString checkPath;
-    QDir existingDir(m_cameraManager->savingPath());
+    QDir existingDir(ui->lineEditSavingPath->text());
     if(existingDir.isReadable()){
         checkPath = QFileDialog::getExistingDirectory(this, tr("Выбор папки для сохранения"),
-                                                      m_cameraManager->savingPath(), QFileDialog::ShowDirsOnly|QFileDialog::DontResolveSymlinks);
+                                                      ui->lineEditSavingPath->text(), QFileDialog::ShowDirsOnly|QFileDialog::DontResolveSymlinks);
     }else{
         checkPath = QFileDialog::getExistingDirectory(this, tr("Выбор папки для сохранения"),
                                                       "/home", QFileDialog::ShowDirsOnly|QFileDialog::DontResolveSymlinks);
     }
     QDir checkDir(checkPath);
     if(checkDir.isReadable()){
+        ui->lineEditSavingPath->setText(checkPath);
+        m_settings->setValue("Pathes/saving", checkPath);
         m_cameraManager->setSavingPath(checkPath);
     }
 }
+
+void BaslerWindow::on_pushButtonSaving_clicked()
+{
+    if(ui->pushButtonSaving->isChecked()){        
+        qDebug()<<"******START!";
+        ui->pushButtonSaving->setText("Остановить запись");
+        m_cameraManager->setIsNeedToSave(true);
+    }else{
+        qDebug()<<"******STOP!";
+        ui->pushButtonSaving->setText("Начать запись");
+        m_cameraManager->setIsNeedToSave(false);
+    }
+}
+
+void BaslerWindow::setupProject()
+{
+    m_title.append(VER_PRODUCTNAME_STR).append(" v_").append(VER_FILEVERSION_STR);
+    QApplication::setStyle(QStyleFactory::create("Fusion"));
+    ui->setupUi(this);
+    this->setWindowTitle(m_title + ". Пожалуйста, подождите, идет запуск ПО...");
+    m_settings = IniFileLoader::createSettingsObject(VER_PRODUCTNAME_STR);
+    ui->lineEditSavingPath->setText(m_settings->value("Pathes/saving").toString());
+    statusBar()->showMessage("Not started");
+}
+

@@ -5,6 +5,7 @@
 #include <Basler/CameraManager.h>
 #include <QCloseEvent>
 #include <BaslerSettingsForm.h>
+#include <QButtonGroup>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class BaslerWindow; }
@@ -28,10 +29,20 @@ private slots:
 
     void on_pushButtonOpenFolderSaving_clicked();
 
+    void on_pushButtonSaving_clicked();
+
 private:
+    /**
+     * @brief setupProject   Function that setups project
+     */
+    void setupProject();
     void setupSettingBoxes(BaslerSettingsForm *form, QString formName, BaslerCameraParams params);
 
     Ui::BaslerWindow *ui;
+    QString m_title;
+    QSettings *m_settings;      //!< Settings
+    QButtonGroup *m_saveFormatGroup;
+
     CameraManager *m_cameraManager;
     bool m_isRunning;
 };

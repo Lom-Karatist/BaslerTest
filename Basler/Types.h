@@ -87,6 +87,15 @@ namespace BaslerConstants {
         BinningHorizontalMode,  //!< Режим биннинга по горизонтали (Sum/Average)
         BinningVerticalMode     //!< Режим биннинга по вертикали (Sum/Average)
     };
+
+    /**
+     * @enum SavingFormat
+     * @brief Перечисление всех типов сохранения данных камер Basler
+     */
+    enum SavingFormat {
+        Bmp,        //!< Изображения в формате BMP
+        Binary      //!< Бинарные файлы
+    };
 }
 
 #endif // TYPES_H
