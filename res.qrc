@@ -3,5 +3,8 @@
         <file>Icons/folder.png</file>
         <file>Icons/folder_hover.png</file>
         <file>Icons/folder_pressed.png</file>
+        <file>Icons/open-folder.png</file>
+        <file>Icons/open-folder_hover.png</file>
+        <file>Icons/open-folder_pressed.png</file>
     </qresource>
 </RCC>

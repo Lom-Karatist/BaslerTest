@@ -31,6 +31,8 @@ private slots:
 
     void on_pushButtonSaving_clicked();
 
+    void on_pushButtonOpenDataFolder_clicked();
+
 private:
     /**
      * @brief setupProject   Function that setups project

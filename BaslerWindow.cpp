@@ -9,6 +9,7 @@
 #include <QStyleFactory>
 #include "version.h"
 #include <BaseTools/IniFileLoader.h>
+#include <QDesktopServices>
 
 BaslerWindow::BaslerWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -139,5 +140,13 @@ void BaslerWindow::setupProject()
     m_settings = IniFileLoader::createSettingsObject(VER_PRODUCTNAME_STR);
     ui->lineEditSavingPath->setText(m_settings->value("Pathes/saving").toString());
     statusBar()->showMessage("Not started");
+}
+
+
+void BaslerWindow::on_pushButtonOpenDataFolder_clicked()
+{
+    QDir dir;
+    dir.setPath(m_settings->value("Pathes/saving").toString());
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dir.absolutePath()));
 }
 
