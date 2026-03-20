@@ -60,6 +60,20 @@ private:
     void calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize);
     inline int maxOutSize(int maxSize, int binning);
 
+    void setExposure(bool isMaster, double value);
+    void setGain(bool isMaster, double value);
+    void setAcquisitionFramerate(bool isMaster, double value);
+    void setWidth(bool isMaster, int value);
+    void setHeight(bool isMaster, int value);
+    void setOffsetX(bool isMaster, int value);
+    void setOffsetY(bool isMaster, int value);
+    void setBinningHorizontal(bool isMaster, int value);
+    void setBinningVertical(bool isMaster, int value);
+    void setPixelFormat(bool isMaster, int value);
+    void setBinningHorizontalMode(bool isMaster, BinningHorizontalModeEnums mode);
+    void setBinningVerticalMode(bool isMaster, BinningVerticalModeEnums mode);
+
+
     BaslerApi* m_master;
     BaslerApi* m_slave;
     BaslerCameraParams m_hsParams;

@@ -83,6 +83,19 @@ public:
      */
     bool isConnected() const { return m_isConnected; }
 
+    void setExposure(double value);
+    void setGain(double value);
+    void setAcquisitionFrameRate(double value);
+    void setWidth(int value);
+    void setHeight(int value);
+    void setOffsetX(int value);
+    void setOffsetY(int value);
+    void setBinningHorizontal(int value);
+    void setBinningVertical(int value);
+    void setPixelFormat(int value);
+    void setBinningHorizontalMode(BinningHorizontalModeEnums mode);
+    void setBinningVerticalMode(BinningVerticalModeEnums mode);
+
 signals:
     /**
      * @brief Сигнал о завершении попытки подключения.
@@ -133,6 +146,8 @@ private:
      */
     void processRawData();
 
+    void applyPendingChanges();
+
     std::atomic<bool> m_isActive;   //!< Флаг активности потока. true — поток должен работать.
     std::atomic<bool> m_isGrabbing; //!< Флаг захвата. true — нужно захватывать и отправлять кадры.
 
@@ -143,6 +158,20 @@ private:
 
     CBaslerUniversalInstantCamera* m_camera;    //!< Указатель на объект камеры.
     CGrabResultPtr m_ptrGrabResult;             //!< Умный указатель на результат захвата.    
+
+    std::atomic<double> m_requestedExposure;
+    std::atomic<double> m_requestedGain;
+    std::atomic<double> m_requestedFrameRate;
+    std::atomic<int> m_requestedWidth;
+    std::atomic<int> m_requestedHeight;
+    std::atomic<int> m_requestedOffsetX;
+    std::atomic<int> m_requestedOffsetY;
+    std::atomic<int> m_requestedBinningH;
+    std::atomic<int> m_requestedBinningV;
+    std::atomic<int> m_requestedPixelFormat;
+    std::atomic<int> m_requestedBinningHMode; // 0=Sum, 1=Average
+    std::atomic<int> m_requestedBinningVMode;
+    std::atomic<bool> m_reconfigureNeeded;    // флаг необходимости обновления
 };
 
 #endif // BASLERAPI_H

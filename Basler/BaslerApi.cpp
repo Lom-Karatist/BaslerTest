@@ -12,6 +12,19 @@ BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *p
     , m_isMaster(isMaster)
     , m_params(params)
     , m_camera(nullptr)
+    , m_requestedExposure(params.exposureTime)
+    , m_requestedGain(params.gain)
+    , m_requestedFrameRate(params.acquisitionFrameRate)
+    , m_requestedWidth(params.width)
+    , m_requestedHeight(params.height)
+    , m_requestedOffsetX(params.offsetX)
+    , m_requestedOffsetY(params.offsetY)
+    , m_requestedBinningH(params.binningHorizontal)
+    , m_requestedBinningV(params.binningVertical)
+    , m_requestedPixelFormat(params.pixelFormat)
+    , m_requestedBinningHMode(static_cast<int>(params.binningHorizontalMode))
+    , m_requestedBinningVMode(static_cast<int>(params.binningVerticalMode))
+    , m_reconfigureNeeded(false)
 {
 
 }
@@ -45,8 +58,14 @@ void BaslerApi::run()
 //    configureMasterSlave();
 
     while (m_isActive.load()) {
+        if (m_reconfigureNeeded.load()) {
+            pauseGrabbing();
+            applyPendingChanges();
+            startGrabbing();
+            continue;
+        }
         if(!m_isGrabbing.load())
-        QApplication::processEvents();
+            QApplication::processEvents();
         if (m_isGrabbing.load()) {
             if(!m_camera->IsGrabbing()){
                 startGrabbing();
@@ -100,6 +119,64 @@ void BaslerApi::stopGrabbing()
 {
     pauseGrabbing();
     m_isActive = false;
+}
+
+void BaslerApi::setExposure(double value) {
+    m_requestedExposure.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setGain(double value) {
+    m_requestedGain.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setAcquisitionFrameRate(double value) {
+    m_requestedFrameRate.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setWidth(int value) {
+    m_requestedWidth.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setHeight(int value) {
+    m_requestedHeight.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setOffsetX(int value) {
+    m_requestedOffsetX.store(value);
+    m_reconfigureNeeded = true;
+}
+void BaslerApi::setOffsetY(int value) {
+    m_requestedOffsetY.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setBinningHorizontal(int value) {
+    m_requestedBinningH.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setBinningVertical(int value) {
+    m_requestedBinningV.store(value);
+    m_reconfigureNeeded = true;
+}
+void BaslerApi::setPixelFormat(int value) {
+    m_requestedPixelFormat.store(value);
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setBinningHorizontalMode(BinningHorizontalModeEnums mode) {
+    m_requestedBinningHMode.store(static_cast<int>(mode));
+    m_reconfigureNeeded = true;
+}
+
+void BaslerApi::setBinningVerticalMode(BinningVerticalModeEnums mode) {
+    m_requestedBinningVMode.store(static_cast<int>(mode));
+    m_reconfigureNeeded = true;
 }
 
 bool BaslerApi::initializeCamera()
@@ -162,10 +239,8 @@ void BaslerApi::setupCameraFeatures()
             m_camera->OffsetY.SetValue(m_params.offsetY);
 
         // Экспозиция
-        if (m_camera->ExposureTimeAbs.IsWritable())
-            m_camera->ExposureTimeAbs.SetValue(m_params.exposureTime*1000);
         else if (m_camera->ExposureTime.IsWritable())
-            m_camera->ExposureTime.SetValue(m_params.exposureTime*1000); // для некоторых моделей
+            m_camera->ExposureTime.SetValue(m_params.exposureTime*1000);
 
         // Gain
         if (m_camera->GainRaw.IsWritable())
@@ -245,4 +320,100 @@ void BaslerApi::processRawData()
     emit rawDataReceived(rawData, m_ptrGrabResult->GetWidth(),
                          m_ptrGrabResult->GetHeight(),
                          m_ptrGrabResult->GetPixelType());
+}
+
+void BaslerApi::applyPendingChanges()
+{
+    if (!m_camera || !m_camera->IsOpen()) return;
+
+    double exp = m_requestedExposure.load();
+    if (exp != m_params.exposureTime) {
+        if (m_camera->ExposureTime.IsWritable())
+            m_camera->ExposureTime.SetValue(exp * 1000.0);
+        m_params.exposureTime = exp;
+    }
+
+    double gain = m_requestedGain.load();
+    if (gain != m_params.gain) {
+        if (m_camera->GainRaw.IsWritable())
+            m_camera->GainRaw.SetValue(gain);
+        m_params.gain = gain;
+    }
+
+    double fps = m_requestedFrameRate.load();
+    if (fps != m_params.acquisitionFrameRate) {
+        if (GenApi::IsAvailable(m_camera->AcquisitionFrameRate))
+            m_camera->AcquisitionFrameRate.SetValue(fps);
+        m_params.acquisitionFrameRate = fps;
+    }
+
+    int width = m_requestedWidth.load();
+    if (width != m_params.width) {
+        if (m_camera->Width.IsWritable())
+            m_camera->Width.SetValue(width);
+        m_params.width = width;
+    }
+
+    int height = m_requestedHeight.load();
+    if (height != m_params.height) {
+        if (m_camera->Height.IsWritable())
+            m_camera->Height.SetValue(height);
+        m_params.height = height;
+    }
+
+    int offX = m_requestedOffsetX.load();
+    if (offX != m_params.offsetX) {
+        if (m_camera->OffsetX.IsWritable())
+            m_camera->OffsetX.SetValue(offX);
+        m_params.offsetX = offX;
+    }
+
+    int offY = m_requestedOffsetY.load();
+    if (offY != m_params.offsetY) {
+        if (m_camera->OffsetY.IsWritable())
+            m_camera->OffsetY.SetValue(offY);
+        m_params.offsetY = offY;
+    }
+
+    int binH = m_requestedBinningH.load();
+    if (binH != m_params.binningHorizontal) {
+        if (m_camera->BinningHorizontal.IsWritable())
+            m_camera->BinningHorizontal.SetValue(binH);
+        m_params.binningHorizontal = binH;
+    }
+
+    int binV = m_requestedBinningV.load();
+    if (binV != m_params.binningVertical) {
+        if (m_camera->BinningVertical.IsWritable())
+            m_camera->BinningVertical.SetValue(binV);
+        m_params.binningVertical = binV;
+    }
+
+    int pix = m_requestedPixelFormat.load();
+    if (pix != m_params.pixelFormat) {
+        if (m_camera->PixelFormat.IsWritable()) {
+            m_camera->PixelFormat.SetValue(static_cast<PixelFormatEnums>(pix));
+        }
+        m_params.pixelFormat = pix;
+    }
+
+    int binHMode = m_requestedBinningHMode.load();
+    if (binHMode != static_cast<int>(m_params.binningHorizontalMode)) {
+        if (m_camera->BinningHorizontalMode.IsWritable()) {
+            m_camera->BinningHorizontalMode.SetValue(
+                static_cast<BinningHorizontalModeEnums>(binHMode));
+        }
+        m_params.binningHorizontalMode = static_cast<BinningHorizontalModeEnums>(binHMode);
+    }
+
+    int binVMode = m_requestedBinningVMode.load();
+    if (binVMode != static_cast<int>(m_params.binningVerticalMode)) {
+        if (m_camera->BinningVerticalMode.IsWritable()) {
+            m_camera->BinningVerticalMode.SetValue(
+                static_cast<BinningVerticalModeEnums>(binVMode));
+        }
+        m_params.binningVerticalMode = static_cast<BinningVerticalModeEnums>(binVMode);
+    }
+
+    m_reconfigureNeeded = false;
 }

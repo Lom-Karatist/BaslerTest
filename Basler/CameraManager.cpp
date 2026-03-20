@@ -158,6 +158,7 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
         break;
     case BaslerConstants::SettingTypes::Gain:
         cameraParams.gain = value.toDouble();
+        setGain(cameraParams.isMaster, cameraParams.gain);
         break;
     case BaslerConstants::SettingTypes::Width:
     case BaslerConstants::SettingTypes::OffsetX:
@@ -183,6 +184,8 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
             cameraParams.pixelFormat = PixelType_Mono12;
         else if (index == 2)
             cameraParams.pixelFormat = PixelType_Mono12p;
+
+        setPixelFormat(cameraParams.isMaster, cameraParams.pixelFormat);
     }
         break;
     case BaslerConstants::SettingTypes::BinningHorizontalMode:
@@ -192,6 +195,8 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
             cameraParams.binningHorizontalMode = BinningHorizontalMode_Sum;
         else
             cameraParams.binningHorizontalMode = BinningHorizontalMode_Average;
+
+        setBinningHorizontalMode(cameraParams.isMaster, cameraParams.binningHorizontalMode);
     }
         break;
     case BaslerConstants::SettingTypes::BinningVerticalMode:
@@ -201,6 +206,8 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
             cameraParams.binningVerticalMode = BinningVerticalMode_Sum;
         else
             cameraParams.binningVerticalMode = BinningVerticalMode_Average;
+
+        setBinningVerticalMode(cameraParams.isMaster, cameraParams.binningVerticalMode);
     }
         break;
     default:
@@ -221,8 +228,10 @@ void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &came
         if (cameraParams.exposureTime > maxExposureMs) {
             cameraParams.exposureTime = maxExposureMs;
             emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Exposure, cameraParams.exposureTime);
+            setExposure(cameraParams.isMaster, cameraParams.exposureTime);
             qDebug() << "Exposure changed to" << cameraParams.exposureTime << "ms due to framerate limit";
         }
+        setAcquisitionFramerate(cameraParams.isMaster, cameraParams.acquisitionFrameRate);
     }else{
         cameraParams.exposureTime = value.toDouble();
         double minRequiredPeriodMs = cameraParams.exposureTime / safetyMargin;
@@ -230,9 +239,11 @@ void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &came
         if (cameraParams.acquisitionFrameRate > maxAllowedFramerate) {
             cameraParams.acquisitionFrameRate = maxAllowedFramerate;
             emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::AcquisitionFramerate, cameraParams.acquisitionFrameRate);
+            setAcquisitionFramerate(cameraParams.isMaster, cameraParams.acquisitionFrameRate);
             qDebug() << "Framerate adjusted to" << cameraParams.acquisitionFrameRate << "fps due to exposure limit";
         }
     }
+    setExposure(cameraParams.isMaster, cameraParams.exposureTime);
 }
 
 void CameraManager::processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
@@ -247,6 +258,7 @@ void CameraManager::processRoiAndBinningY(BaslerCameraParams &cameraParams, Basl
     calcRoiOnAxe(cameraParams.height, cameraParams.offsetY, cameraParams.binningVertical,
                  type, value, MAX_HEIGHT);
     cameraParams.offsetY = (cameraParams.offsetY / 2) * 2;
+
 }
 
 void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize)
@@ -279,6 +291,78 @@ void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning, BaslerCon
 int CameraManager::maxOutSize(int maxSize, int binning)
 {
     return maxSize / binning;
+}
+
+void CameraManager::setExposure(bool isMaster, double value)
+{
+    if (isMaster && m_master) m_master->setExposure(value);
+    else if (!isMaster && m_slave) m_slave->setExposure(value);
+}
+
+void CameraManager::setGain(bool isMaster, double value)
+{
+    if (isMaster && m_master) m_master->setGain(value);
+    else if (!isMaster && m_slave) m_slave->setGain(value);
+}
+
+void CameraManager::setAcquisitionFramerate(bool isMaster, double value)
+{
+    // Частота кадров имеет смысл только для мастера
+    if (isMaster && m_master) m_master->setAcquisitionFrameRate(value);
+}
+
+void CameraManager::setWidth(bool isMaster, int value)
+{
+    if (isMaster && m_master) m_master->setWidth(value);
+    else if (!isMaster && m_slave) m_slave->setWidth(value);
+}
+
+void CameraManager::setHeight(bool isMaster, int value)
+{
+    if (isMaster && m_master) m_master->setHeight(value);
+    else if (!isMaster && m_slave) m_slave->setHeight(value);
+}
+
+void CameraManager::setOffsetX(bool isMaster, int value)
+{
+    if (isMaster && m_master) m_master->setOffsetX(value);
+    else if (!isMaster && m_slave) m_slave->setOffsetX(value);
+}
+
+void CameraManager::setOffsetY(bool isMaster, int value)
+{
+    if (isMaster && m_master) m_master->setOffsetY(value);
+    else if (!isMaster && m_slave) m_slave->setOffsetY(value);
+}
+
+void CameraManager::setBinningHorizontal(bool isMaster, int value)
+{
+    if (isMaster && m_master) m_master->setBinningHorizontal(value);
+    else if (!isMaster && m_slave) m_slave->setBinningHorizontal(value);
+}
+
+void CameraManager::setBinningVertical(bool isMaster, int value)
+{
+    if (isMaster && m_master) m_master->setBinningVertical(value);
+    else if (!isMaster && m_slave) m_slave->setBinningVertical(value);
+}
+
+void CameraManager::setPixelFormat(bool isMaster, int value)
+{
+    if (isMaster && m_master) m_master->setPixelFormat(value);
+    else if (!isMaster && m_slave) m_slave->setPixelFormat(value);
+}
+
+void CameraManager::setBinningHorizontalMode(bool isMaster, BinningHorizontalModeEnums mode)
+{
+    if (isMaster && m_master) m_master->setBinningHorizontalMode(mode);
+    else if (!isMaster && m_slave) m_slave->setBinningHorizontalMode(mode);
+}
+
+void CameraManager::setBinningVerticalMode(bool isMaster, BinningVerticalModeEnums mode)
+{
+    if (isMaster && m_master) m_master->setBinningVerticalMode(mode);
+    else if (!isMaster && m_slave) m_slave->setBinningVerticalMode(mode);
 }
 
 void CameraManager::setIsNeedToSave(bool newIsNeedToSave)
