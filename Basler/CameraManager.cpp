@@ -164,15 +164,11 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
     case BaslerConstants::SettingTypes::OffsetX:
     case BaslerConstants::SettingTypes::BinningHorizontal:
         processRoiAndBinningX(cameraParams, type, value);
-        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Width, cameraParams.width);
-        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::OffsetX, cameraParams.offsetX);
         break;
     case BaslerConstants::SettingTypes::Height:
     case BaslerConstants::SettingTypes::OffsetY:
     case BaslerConstants::SettingTypes::BinningVertical:
         processRoiAndBinningY(cameraParams, type, value);
-        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Height, cameraParams.height);
-        emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::OffsetY, cameraParams.offsetY);
         break;
 
     case BaslerConstants::SettingTypes::PixelFormat:
@@ -220,6 +216,7 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
 void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
 {
     const double safetyMargin = 0.99;
+    std::vector<std::unique_ptr<ParameterCommand>> commands;
 
     if(type == BaslerConstants::SettingTypes::AcquisitionFramerate){
         cameraParams.acquisitionFrameRate = value.toDouble();
@@ -228,10 +225,10 @@ void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &came
         if (cameraParams.exposureTime > maxExposureMs) {
             cameraParams.exposureTime = maxExposureMs;
             emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Exposure, cameraParams.exposureTime);
-            setExposure(cameraParams.isMaster, cameraParams.exposureTime);
+            commands.emplace_back(new SetExposureCommand(cameraParams.exposureTime));
             qDebug() << "Exposure changed to" << cameraParams.exposureTime << "ms due to framerate limit";
         }
-        setAcquisitionFramerate(cameraParams.isMaster, cameraParams.acquisitionFrameRate);
+        commands.emplace_back(new SetFramerateCommand(cameraParams.acquisitionFrameRate));
     }else{
         cameraParams.exposureTime = value.toDouble();
         double minRequiredPeriodMs = cameraParams.exposureTime / safetyMargin;
@@ -239,31 +236,82 @@ void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &came
         if (cameraParams.acquisitionFrameRate > maxAllowedFramerate) {
             cameraParams.acquisitionFrameRate = maxAllowedFramerate;
             emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::AcquisitionFramerate, cameraParams.acquisitionFrameRate);
-            setAcquisitionFramerate(cameraParams.isMaster, cameraParams.acquisitionFrameRate);
+            commands.emplace_back(new SetFramerateCommand(cameraParams.acquisitionFrameRate));
             qDebug() << "Framerate adjusted to" << cameraParams.acquisitionFrameRate << "fps due to exposure limit";
-        }
+        }        
+        commands.emplace_back(new SetExposureCommand(cameraParams.exposureTime));
     }
-    setExposure(cameraParams.isMaster, cameraParams.exposureTime);
+
+    if (!commands.empty()) {
+        submitCommands(cameraParams.isMaster, std::move(commands));
+    }
 }
 
 void CameraManager::processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
 {
+    QList<BaslerConstants::SettingTypes> commandsOrder;
     calcRoiOnAxe(cameraParams.width, cameraParams.offsetX, cameraParams.binningHorizontal,
-                 type, value, MAX_WIDTH);
+                 type, value, MAX_WIDTH, commandsOrder);
     cameraParams.offsetX = (cameraParams.offsetX / 4) * 4;
+
+    std::vector<std::unique_ptr<ParameterCommand>> commands;
+    foreach(auto cmd, commandsOrder){
+        switch(cmd){
+        case BaslerConstants::BinningAny:
+            commands.emplace_back(new SetBinningHorizontalCommand(cameraParams.binningHorizontal));
+            break;
+        case BaslerConstants::SizeAny:
+            emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Width, cameraParams.width);
+            commands.emplace_back(new SetWidthCommand(cameraParams.width));
+            break;
+        case BaslerConstants::OffsetAny:
+            emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::OffsetX, cameraParams.offsetX);
+            commands.emplace_back(new SetOffsetXCommand(cameraParams.offsetX));
+            break;
+        default:
+            break;
+        }
+    }
+    submitCommands(cameraParams.isMaster, std::move(commands));
 }
 
 void CameraManager::processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
 {
+    QList<BaslerConstants::SettingTypes> commandsOrder;
     calcRoiOnAxe(cameraParams.height, cameraParams.offsetY, cameraParams.binningVertical,
-                 type, value, MAX_HEIGHT);
+                 type, value, MAX_HEIGHT, commandsOrder);
     cameraParams.offsetY = (cameraParams.offsetY / 2) * 2;
 
+    std::vector<std::unique_ptr<ParameterCommand>> commands;
+    foreach(auto cmd, commandsOrder){
+        switch(cmd){
+        case BaslerConstants::BinningAny:
+            commands.emplace_back(new SetBinningVerticalCommand(cameraParams.binningVertical));
+            break;
+        case BaslerConstants::SizeAny:
+            emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::Height, cameraParams.height);
+            commands.emplace_back(new SetHeightCommand(cameraParams.height));
+            break;
+        case BaslerConstants::OffsetAny:
+            emit forceParameterChanging(cameraParams.isMaster, BaslerConstants::SettingTypes::OffsetY, cameraParams.offsetY);
+            commands.emplace_back(new SetOffsetYCommand(cameraParams.offsetY));
+            break;
+        default:
+            break;
+        }
+    }
+    submitCommands(cameraParams.isMaster, std::move(commands));
 }
 
-void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize)
+void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning,
+                                 BaslerConstants::SettingTypes changedType,
+                                 const QVariant &value, int maxSize,
+                                 QList<BaslerConstants::SettingTypes> &commands)
 {
+    bool isValueRising = false;
     if (changedType == BaslerConstants::BinningHorizontal || changedType == BaslerConstants::BinningVertical) {
+        if(binning < value.toInt()) isValueRising = true;
+
         double physSize = static_cast<double>(size) * binning;
         double physOffset = static_cast<double>(offset) * binning;
         binning = qBound(1, value.toInt(), 4);
@@ -274,7 +322,19 @@ void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning, BaslerCon
         size = qMin(desiredSize, maxOutSize(maxSize, binning));
         int maxOffset = maxSize - desiredSize * binning;
         offset = qMin(desiredOffset, maxOffset);
+
+        if(isValueRising){
+            commands.append(BaslerConstants::OffsetAny);
+            commands.append(BaslerConstants::SizeAny);
+            commands.append(BaslerConstants::BinningAny);
+        }else{
+            commands.append(BaslerConstants::BinningAny);
+            commands.append(BaslerConstants::SizeAny);
+            commands.append(BaslerConstants::OffsetAny);
+        }
     }else if (changedType == BaslerConstants::Width || changedType == BaslerConstants::Height) {
+        if(size < value.toInt()) isValueRising = true;
+
         int oldSize = size;
         size = qBound(1, value.toInt(), maxOutSize(maxSize, binning));
 
@@ -282,9 +342,18 @@ void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning, BaslerCon
         int neededOffset = scale*offset;
         int maxOffset = maxSize - size * binning;
         offset = qBound(0, neededOffset, maxOffset);
+
+        if(isValueRising){
+            commands.append(BaslerConstants::SizeAny);
+            commands.append(BaslerConstants::OffsetAny);
+        }else{
+            commands.append(BaslerConstants::OffsetAny);
+            commands.append(BaslerConstants::SizeAny);
+        }
     }else if (changedType == BaslerConstants::OffsetX  || changedType == BaslerConstants::OffsetY) {
         int maxOffset = maxSize - size * binning;
         offset = qBound(0, value.toInt(), maxOffset);
+        commands.append(BaslerConstants::OffsetAny);
     }
 }
 
@@ -293,58 +362,10 @@ int CameraManager::maxOutSize(int maxSize, int binning)
     return maxSize / binning;
 }
 
-void CameraManager::setExposure(bool isMaster, double value)
-{
-    if (isMaster && m_master) m_master->setExposure(value);
-    else if (!isMaster && m_slave) m_slave->setExposure(value);
-}
-
 void CameraManager::setGain(bool isMaster, double value)
 {
     if (isMaster && m_master) m_master->setGain(value);
     else if (!isMaster && m_slave) m_slave->setGain(value);
-}
-
-void CameraManager::setAcquisitionFramerate(bool isMaster, double value)
-{
-    // Частота кадров имеет смысл только для мастера
-    if (isMaster && m_master) m_master->setAcquisitionFrameRate(value);
-}
-
-void CameraManager::setWidth(bool isMaster, int value)
-{
-    if (isMaster && m_master) m_master->setWidth(value);
-    else if (!isMaster && m_slave) m_slave->setWidth(value);
-}
-
-void CameraManager::setHeight(bool isMaster, int value)
-{
-    if (isMaster && m_master) m_master->setHeight(value);
-    else if (!isMaster && m_slave) m_slave->setHeight(value);
-}
-
-void CameraManager::setOffsetX(bool isMaster, int value)
-{
-    if (isMaster && m_master) m_master->setOffsetX(value);
-    else if (!isMaster && m_slave) m_slave->setOffsetX(value);
-}
-
-void CameraManager::setOffsetY(bool isMaster, int value)
-{
-    if (isMaster && m_master) m_master->setOffsetY(value);
-    else if (!isMaster && m_slave) m_slave->setOffsetY(value);
-}
-
-void CameraManager::setBinningHorizontal(bool isMaster, int value)
-{
-    if (isMaster && m_master) m_master->setBinningHorizontal(value);
-    else if (!isMaster && m_slave) m_slave->setBinningHorizontal(value);
-}
-
-void CameraManager::setBinningVertical(bool isMaster, int value)
-{
-    if (isMaster && m_master) m_master->setBinningVertical(value);
-    else if (!isMaster && m_slave) m_slave->setBinningVertical(value);
 }
 
 void CameraManager::setPixelFormat(bool isMaster, int value)
@@ -363,6 +384,14 @@ void CameraManager::setBinningVerticalMode(bool isMaster, BinningVerticalModeEnu
 {
     if (isMaster && m_master) m_master->setBinningVerticalMode(mode);
     else if (!isMaster && m_slave) m_slave->setBinningVerticalMode(mode);
+}
+
+void CameraManager::submitCommands(bool isMaster, std::vector<std::unique_ptr<ParameterCommand> > commands)
+{
+    if(isMaster)
+        m_master->submitCommands(std::move(commands));
+    else
+        m_slave->submitCommands(std::move(commands));
 }
 
 void CameraManager::setIsNeedToSave(bool newIsNeedToSave)

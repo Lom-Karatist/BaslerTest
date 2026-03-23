@@ -5,7 +5,17 @@
 #include <QObject>
 #include <QImage>
 #include <QElapsedTimer>
+#include <QMutex>
 #include "Types.h"
+#include "Commands/ParameterCommand.h"
+#include "Commands/SetBinningHorizontalCommand.h"
+#include "Commands/SetBinningVerticalCommand.h"
+#include "Commands/SetExposureCommand.h"
+#include "Commands/SetFramerateCommand.h"
+#include "Commands/SetHeightCommand.h"
+#include "Commands/SetWidthCommand.h"
+#include "Commands/SetOffsetXCommand.h"
+#include "Commands/SetOffsetYCommand.h"
 
 /**
  * @brief Класс для управления камерой Basler в отдельном потоке.
@@ -83,18 +93,21 @@ public:
      */
     bool isConnected() const { return m_isConnected; }
 
-    void setExposure(double value);
     void setGain(double value);
-    void setAcquisitionFrameRate(double value);
-    void setWidth(int value);
-    void setHeight(int value);
-    void setOffsetX(int value);
-    void setOffsetY(int value);
-    void setBinningHorizontal(int value);
-    void setBinningVertical(int value);
     void setPixelFormat(int value);
     void setBinningHorizontalMode(BinningHorizontalModeEnums mode);
     void setBinningVerticalMode(BinningVerticalModeEnums mode);
+
+    void submitCommands(std::vector<std::unique_ptr<ParameterCommand>> commands);
+    void applyWidthChanging(int value);
+    void applyHeightChanging(int value);
+    void applyOffsetXChanging(int value);
+    void applyOffsetYChanging(int value);
+    void applyBinningHorizontalChanging(int value);
+    void applyBinningVerticalChanging(int value);
+
+    void applyExposureChanging(double exposureMs);
+    void applyFramerateChanging(double fps);
 
 signals:
     /**
@@ -147,6 +160,7 @@ private:
     void processRawData();
 
     void applyPendingChanges();
+    void applyPendingCommands();
 
     std::atomic<bool> m_isActive;   //!< Флаг активности потока. true — поток должен работать.
     std::atomic<bool> m_isGrabbing; //!< Флаг захвата. true — нужно захватывать и отправлять кадры.
@@ -159,19 +173,15 @@ private:
     CBaslerUniversalInstantCamera* m_camera;    //!< Указатель на объект камеры.
     CGrabResultPtr m_ptrGrabResult;             //!< Умный указатель на результат захвата.    
 
-    std::atomic<double> m_requestedExposure;
     std::atomic<double> m_requestedGain;
-    std::atomic<double> m_requestedFrameRate;
-    std::atomic<int> m_requestedWidth;
-    std::atomic<int> m_requestedHeight;
-    std::atomic<int> m_requestedOffsetX;
-    std::atomic<int> m_requestedOffsetY;
-    std::atomic<int> m_requestedBinningH;
-    std::atomic<int> m_requestedBinningV;
     std::atomic<int> m_requestedPixelFormat;
     std::atomic<int> m_requestedBinningHMode; // 0=Sum, 1=Average
     std::atomic<int> m_requestedBinningVMode;
-    std::atomic<bool> m_reconfigureNeeded;    // флаг необходимости обновления
+    std::atomic<bool> m_reconfigureNeeded;
+
+    std::vector<std::unique_ptr<ParameterCommand>> m_pendingCommands;
+    std::atomic<bool> m_commandsPending{false};
+    QMutex m_commandsMutex;
 };
 
 #endif // BASLERAPI_H

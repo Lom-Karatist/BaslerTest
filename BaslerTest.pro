@@ -26,6 +26,14 @@ SOURCES += \
     Basler/BaslerApi.cpp \
     Basler/BaslerSettings.cpp \
     Basler/CameraManager.cpp \
+    Basler/Commands/SetBinningHorizontalCommand.cpp \
+    Basler/Commands/SetBinningVerticalCommand.cpp \
+    Basler/Commands/SetExposureCommand.cpp \
+    Basler/Commands/SetFramerateCommand.cpp \
+    Basler/Commands/SetHeightCommand.cpp \
+    Basler/Commands/SetOffsetXCommand.cpp \
+    Basler/Commands/SetOffsetYCommand.cpp \
+    Basler/Commands/SetWidthCommand.cpp \
     Basler/SavingModule.cpp \
     BaslerSettingsForm.cpp \
     main.cpp \
@@ -36,6 +44,15 @@ HEADERS += \
     BaseTools/QrcFilesRestorer.h \
     Basler/BaslerApi.h \
     Basler/BaslerSettings.h \
+    Basler/Commands/ParameterCommand.h \
+    Basler/Commands/SetBinningHorizontalCommand.h \
+    Basler/Commands/SetBinningVerticalCommand.h \
+    Basler/Commands/SetExposureCommand.h \
+    Basler/Commands/SetFramerateCommand.h \
+    Basler/Commands/SetHeightCommand.h \
+    Basler/Commands/SetOffsetXCommand.h \
+    Basler/Commands/SetOffsetYCommand.h \
+    Basler/Commands/SetWidthCommand.h \
     Basler/SavingModule.h \
     Basler/Types.h \
     BaslerSettingsForm.h \

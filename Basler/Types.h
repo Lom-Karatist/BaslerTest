@@ -85,7 +85,11 @@ namespace BaslerConstants {
         BinningHorizontal,      //!< Коэффициент биннинга по горизонтали
         BinningVertical,        //!< Коэффициент биннинга по вертикали
         BinningHorizontalMode,  //!< Режим биннинга по горизонтали (Sum/Average)
-        BinningVerticalMode     //!< Режим биннинга по вертикали (Sum/Average)
+        BinningVerticalMode,     //!< Режим биннинга по вертикали (Sum/Average)
+
+        SizeAny,                //!< Размер по любой из осей (не для взаимодействия через API)
+        OffsetAny,              //!< Смещение по любой из осей (не для взаимодействия через API)
+        BinningAny,             //!< Биннинг по любой из осей (не для взаимодействия через API)
     };
 
     /**

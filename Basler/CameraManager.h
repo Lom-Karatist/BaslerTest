@@ -53,25 +53,22 @@ private slots:
     void onSlaveRawData(const QByteArray& data, int w, int h, int pixelFormat);
 
 private:
-    void saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
+    void saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams,
+                             BaslerConstants::SettingTypes type, QVariant value);
     void processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
     void processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
     void processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
-    void calcRoiOnAxe(int &size, int &offset, int &binning, BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize);
+    void calcRoiOnAxe(int &size, int &offset, int &binning,
+                      BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize,
+                      QList<BaslerConstants::SettingTypes> &commands);
     inline int maxOutSize(int maxSize, int binning);
 
-    void setExposure(bool isMaster, double value);
     void setGain(bool isMaster, double value);
-    void setAcquisitionFramerate(bool isMaster, double value);
-    void setWidth(bool isMaster, int value);
-    void setHeight(bool isMaster, int value);
-    void setOffsetX(bool isMaster, int value);
-    void setOffsetY(bool isMaster, int value);
-    void setBinningHorizontal(bool isMaster, int value);
-    void setBinningVertical(bool isMaster, int value);
     void setPixelFormat(bool isMaster, int value);
     void setBinningHorizontalMode(bool isMaster, BinningHorizontalModeEnums mode);
     void setBinningVerticalMode(bool isMaster, BinningVerticalModeEnums mode);
+
+    void submitCommands(bool isMaster, std::vector<std::unique_ptr<ParameterCommand>> commands);
 
 
     BaslerApi* m_master;
