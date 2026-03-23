@@ -55,9 +55,12 @@ private slots:
 private:
     void saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams,
                              BaslerConstants::SettingTypes type, QVariant value);
-    void processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
-    void processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
-    void processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value);
+    void processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
+                                             std::vector<std::unique_ptr<ParameterCommand> > &commands);
+    void processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
+                               std::vector<std::unique_ptr<ParameterCommand> > &commands);
+    void processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
+                               std::vector<std::unique_ptr<ParameterCommand> > &commands);
     void calcRoiOnAxe(int &size, int &offset, int &binning,
                       BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize,
                       QList<BaslerConstants::SettingTypes> &commands);

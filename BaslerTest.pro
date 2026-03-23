@@ -27,12 +27,16 @@ SOURCES += \
     Basler/BaslerSettings.cpp \
     Basler/CameraManager.cpp \
     Basler/Commands/SetBinningHorizontalCommand.cpp \
+    Basler/Commands/SetBinningHorizontalModeCommand.cpp \
     Basler/Commands/SetBinningVerticalCommand.cpp \
+    Basler/Commands/SetBinningVerticalModeCommand.cpp \
     Basler/Commands/SetExposureCommand.cpp \
     Basler/Commands/SetFramerateCommand.cpp \
+    Basler/Commands/SetGainCommand.cpp \
     Basler/Commands/SetHeightCommand.cpp \
     Basler/Commands/SetOffsetXCommand.cpp \
     Basler/Commands/SetOffsetYCommand.cpp \
+    Basler/Commands/SetPixelFormatCommand.cpp \
     Basler/Commands/SetWidthCommand.cpp \
     Basler/SavingModule.cpp \
     BaslerSettingsForm.cpp \
@@ -46,12 +50,16 @@ HEADERS += \
     Basler/BaslerSettings.h \
     Basler/Commands/ParameterCommand.h \
     Basler/Commands/SetBinningHorizontalCommand.h \
+    Basler/Commands/SetBinningHorizontalModeCommand.h \
     Basler/Commands/SetBinningVerticalCommand.h \
+    Basler/Commands/SetBinningVerticalModeCommand.h \
     Basler/Commands/SetExposureCommand.h \
     Basler/Commands/SetFramerateCommand.h \
+    Basler/Commands/SetGainCommand.h \
     Basler/Commands/SetHeightCommand.h \
     Basler/Commands/SetOffsetXCommand.h \
     Basler/Commands/SetOffsetYCommand.h \
+    Basler/Commands/SetPixelFormatCommand.h \
     Basler/Commands/SetWidthCommand.h \
     Basler/SavingModule.h \
     Basler/Types.h \

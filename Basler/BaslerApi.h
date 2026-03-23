@@ -16,6 +16,10 @@
 #include "Commands/SetWidthCommand.h"
 #include "Commands/SetOffsetXCommand.h"
 #include "Commands/SetOffsetYCommand.h"
+#include "Commands/SetGainCommand.h"
+#include "Commands/SetPixelFormatCommand.h"
+#include "Commands/SetBinningHorizontalModeCommand.h"
+#include "Commands/SetBinningVerticalModeCommand.h"
 
 /**
  * @brief Класс для управления камерой Basler в отдельном потоке.
@@ -93,21 +97,85 @@ public:
      */
     bool isConnected() const { return m_isConnected; }
 
-    void setGain(double value);
-    void setPixelFormat(int value);
-    void setBinningHorizontalMode(BinningHorizontalModeEnums mode);
-    void setBinningVerticalMode(BinningVerticalModeEnums mode);
+    /**
+     * @brief Применить изменение усиления (Gain).
+     * @param value Новое значение усиления.
+     */
+    void applyGainChanging(double value);
 
-    void submitCommands(std::vector<std::unique_ptr<ParameterCommand>> commands);
+    /**
+     * @brief Применить изменение формата пикселя.
+     * @param value Новый формат пикселя (значение из EPixelType).
+     */
+    void applyPixelFormatChanging(int value);
+
+    /**
+     * @brief Применить изменение режима биннинга по горизонтали.
+     * @param mode Новый режим (Sum или Average).
+     */
+    void applyBinningHorizontalModeChanging(BinningHorizontalModeEnums mode);
+
+    /**
+     * @brief Применить изменение режима биннинга по вертикали.
+     * @param mode Новый режим (Sum или Average).
+     */
+    void applyBinningVerticalModeChanging(BinningVerticalModeEnums mode);
+
+    /**
+     * @brief Применить изменение ширины изображения.
+     * @param value Новая ширина.
+     */
     void applyWidthChanging(int value);
+
+    /**
+     * @brief Применить изменение высоты изображения.
+     * @param value Новая высота.
+     */
     void applyHeightChanging(int value);
+
+    /**
+     * @brief Применить изменение смещения по X.
+     * @param value Новое смещение.
+     */
     void applyOffsetXChanging(int value);
+
+    /**
+     * @brief Применить изменение смещения по Y.
+     * @param value Новое смещение.
+     */
     void applyOffsetYChanging(int value);
+
+    /**
+     * @brief Применить изменение коэффициента биннинга по горизонтали.
+     * @param value Новый коэффициент (1–4).
+     */
     void applyBinningHorizontalChanging(int value);
+
+    /**
+     * @brief Применить изменение коэффициента биннинга по вертикали.
+     * @param value Новый коэффициент (1–4).
+     */
     void applyBinningVerticalChanging(int value);
 
+    /**
+     * @brief Применить изменение экспозиции.
+     * @param exposureMs Новая экспозиция в миллисекундах.
+     */
     void applyExposureChanging(double exposureMs);
+
+    /**
+     * @brief Применить изменение частоты кадров.
+     * @param fps Новая частота кадров (кадров/с).
+     */
     void applyFramerateChanging(double fps);
+
+    /**
+     * @brief Передать список команд для выполнения в потоке камеры.
+     * @param commands Список команд (владение передаётся вызываемому методу).
+     *
+     * Команды будут выполнены асинхронно в потоке run() с остановкой захвата.
+     */
+    void submitCommands(std::vector<std::unique_ptr<ParameterCommand>> commands);
 
 signals:
     /**
@@ -159,7 +227,11 @@ private:
      */
     void processRawData();
 
-    void applyPendingChanges();
+    /**
+     * @brief Выполнить все накопленные команды из очереди.
+     *
+     * Останавливает захват, последовательно выполняет команды и возобновляет захват.
+     */
     void applyPendingCommands();
 
     std::atomic<bool> m_isActive;   //!< Флаг активности потока. true — поток должен работать.
@@ -173,15 +245,9 @@ private:
     CBaslerUniversalInstantCamera* m_camera;    //!< Указатель на объект камеры.
     CGrabResultPtr m_ptrGrabResult;             //!< Умный указатель на результат захвата.    
 
-    std::atomic<double> m_requestedGain;
-    std::atomic<int> m_requestedPixelFormat;
-    std::atomic<int> m_requestedBinningHMode; // 0=Sum, 1=Average
-    std::atomic<int> m_requestedBinningVMode;
-    std::atomic<bool> m_reconfigureNeeded;
-
-    std::vector<std::unique_ptr<ParameterCommand>> m_pendingCommands;
-    std::atomic<bool> m_commandsPending{false};
-    QMutex m_commandsMutex;
+    std::vector<std::unique_ptr<ParameterCommand>> m_pendingCommands;   //!< Очередь ожидающих выполнения команд.
+    std::atomic<bool> m_commandsPending{false};                         //!< Флаг наличия ожидающих команд.
+    QMutex m_commandsMutex;                                             //!< Мьютекс для защиты доступа к очереди команд.
 };
 
 #endif // BASLERAPI_H

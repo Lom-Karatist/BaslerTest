@@ -11,12 +11,7 @@ BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *p
     , m_isConnected(false)
     , m_isMaster(isMaster)
     , m_params(params)
-    , m_camera(nullptr)
-    , m_requestedGain(params.gain)
-    , m_requestedPixelFormat(params.pixelFormat)
-    , m_requestedBinningHMode(static_cast<int>(params.binningHorizontalMode))
-    , m_requestedBinningVMode(static_cast<int>(params.binningVerticalMode))
-    , m_reconfigureNeeded(false)
+    , m_camera(nullptr)    
 {
 
 }
@@ -52,12 +47,6 @@ void BaslerApi::run()
     while (m_isActive.load()) {
         if (m_commandsPending.load()) {
             applyPendingCommands();
-            continue;
-        }
-        if (m_reconfigureNeeded.load()) {
-            pauseGrabbing();
-            applyPendingChanges();
-            startGrabbing();
             continue;
         }
         if(!m_isGrabbing.load())
@@ -117,24 +106,26 @@ void BaslerApi::stopGrabbing()
     m_isActive = false;
 }
 
-void BaslerApi::setGain(double value) {
-    m_requestedGain.store(value);
-    m_reconfigureNeeded = true;
+void BaslerApi::applyGainChanging(double value) {
+    if (m_camera->GainRaw.IsWritable())
+        m_camera->GainRaw.SetValue(value);
+    else if (m_camera->Gain.IsWritable())
+        m_camera->Gain.SetValue(value);
 }
 
-void BaslerApi::setPixelFormat(int value) {
-    m_requestedPixelFormat.store(value);
-    m_reconfigureNeeded = true;
+void BaslerApi::applyPixelFormatChanging(int value) {
+    if (m_camera->PixelFormat.IsWritable())
+        m_camera->PixelFormat.SetValue(static_cast<PixelFormatEnums>(value));
 }
 
-void BaslerApi::setBinningHorizontalMode(BinningHorizontalModeEnums mode) {
-    m_requestedBinningHMode.store(static_cast<int>(mode));
-    m_reconfigureNeeded = true;
+void BaslerApi::applyBinningHorizontalModeChanging(BinningHorizontalModeEnums mode) {
+    if (m_camera->BinningHorizontalMode.IsWritable())
+        m_camera->BinningHorizontalMode.SetValue(mode);
 }
 
-void BaslerApi::setBinningVerticalMode(BinningVerticalModeEnums mode) {
-    m_requestedBinningVMode.store(static_cast<int>(mode));
-    m_reconfigureNeeded = true;
+void BaslerApi::applyBinningVerticalModeChanging(BinningVerticalModeEnums mode) {
+    if (m_camera->BinningVerticalMode.IsWritable())
+        m_camera->BinningVerticalMode.SetValue(mode);
 }
 
 void BaslerApi::submitCommands(std::vector<std::unique_ptr<ParameterCommand> > commands)
@@ -250,17 +241,8 @@ void BaslerApi::setupCameraFeatures()
         applyBinningVerticalChanging(m_params.binningVertical);
         applyExposureChanging(m_params.exposureTime);
 
-        // Gain
-        if (m_camera->GainRaw.IsWritable())
-            m_camera->GainRaw.SetValue(m_params.gain);
-        else if (m_camera->Gain.IsWritable())
-            m_camera->Gain.SetValue(m_params.gain);
-
-        // Пиксельный формат
-        if (m_camera->PixelFormat.IsWritable()) {
-            // Для монохромных камер лучше Mono8 или Mono12
-            m_camera->PixelFormat.SetValue(PixelFormat_Mono8);
-        }
+        applyGainChanging(m_params.gain);
+        applyPixelFormatChanging(PixelFormat_Mono8);
 
     } catch (const GenericException& e) {
         emit sendErrorMessage(QString("Setup error: %1").arg(e.GetDescription()));
@@ -328,46 +310,6 @@ void BaslerApi::processRawData()
     emit rawDataReceived(rawData, m_ptrGrabResult->GetWidth(),
                          m_ptrGrabResult->GetHeight(),
                          m_ptrGrabResult->GetPixelType());
-}
-
-void BaslerApi::applyPendingChanges()
-{
-    if (!m_camera || !m_camera->IsOpen()) return;
-
-    double gain = m_requestedGain.load();
-    if (gain != m_params.gain) {
-        if (m_camera->GainRaw.IsWritable())
-            m_camera->GainRaw.SetValue(gain);
-        m_params.gain = gain;
-    }
-
-    int pix = m_requestedPixelFormat.load();
-    if (pix != m_params.pixelFormat) {
-        if (m_camera->PixelFormat.IsWritable()) {
-            m_camera->PixelFormat.SetValue(static_cast<PixelFormatEnums>(pix));
-        }
-        m_params.pixelFormat = pix;
-    }
-
-    int binHMode = m_requestedBinningHMode.load();
-    if (binHMode != static_cast<int>(m_params.binningHorizontalMode)) {
-        if (m_camera->BinningHorizontalMode.IsWritable()) {
-            m_camera->BinningHorizontalMode.SetValue(
-                static_cast<BinningHorizontalModeEnums>(binHMode));
-        }
-        m_params.binningHorizontalMode = static_cast<BinningHorizontalModeEnums>(binHMode);
-    }
-
-    int binVMode = m_requestedBinningVMode.load();
-    if (binVMode != static_cast<int>(m_params.binningVerticalMode)) {
-        if (m_camera->BinningVerticalMode.IsWritable()) {
-            m_camera->BinningVerticalMode.SetValue(
-                static_cast<BinningVerticalModeEnums>(binVMode));
-        }
-        m_params.binningVerticalMode = static_cast<BinningVerticalModeEnums>(binVMode);
-    }
-
-    m_reconfigureNeeded = false;
 }
 
 void BaslerApi::applyPendingCommands()

@@ -151,24 +151,26 @@ void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h, int pix
 
 void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
 {
+    std::vector<std::unique_ptr<ParameterCommand>> commands;
+
     switch (type) {
     case BaslerConstants::SettingTypes::Exposure:
     case BaslerConstants::SettingTypes::AcquisitionFramerate:
-        processExposureAndFramerateChanging(cameraParams, type, value);
+        processExposureAndFramerateChanging(cameraParams, type, value, commands);
         break;
     case BaslerConstants::SettingTypes::Gain:
         cameraParams.gain = value.toDouble();
-        setGain(cameraParams.isMaster, cameraParams.gain);
+        commands.emplace_back(new SetGainCommand(cameraParams.gain));
         break;
     case BaslerConstants::SettingTypes::Width:
     case BaslerConstants::SettingTypes::OffsetX:
     case BaslerConstants::SettingTypes::BinningHorizontal:
-        processRoiAndBinningX(cameraParams, type, value);
+        processRoiAndBinningX(cameraParams, type, value, commands);
         break;
     case BaslerConstants::SettingTypes::Height:
     case BaslerConstants::SettingTypes::OffsetY:
     case BaslerConstants::SettingTypes::BinningVertical:
-        processRoiAndBinningY(cameraParams, type, value);
+        processRoiAndBinningY(cameraParams, type, value, commands);
         break;
 
     case BaslerConstants::SettingTypes::PixelFormat:
@@ -181,7 +183,7 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
         else if (index == 2)
             cameraParams.pixelFormat = PixelType_Mono12p;
 
-        setPixelFormat(cameraParams.isMaster, cameraParams.pixelFormat);
+        commands.emplace_back(new SetPixelFormatCommand(cameraParams.pixelFormat));
     }
         break;
     case BaslerConstants::SettingTypes::BinningHorizontalMode:
@@ -192,7 +194,7 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
         else
             cameraParams.binningHorizontalMode = BinningHorizontalMode_Average;
 
-        setBinningHorizontalMode(cameraParams.isMaster, cameraParams.binningHorizontalMode);
+        commands.emplace_back(new SetBinningHorizontalModeCommand(cameraParams.binningHorizontalMode));
     }
         break;
     case BaslerConstants::SettingTypes::BinningVerticalMode:
@@ -203,20 +205,24 @@ void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject, Ba
         else
             cameraParams.binningVerticalMode = BinningVerticalMode_Average;
 
-        setBinningVerticalMode(cameraParams.isMaster, cameraParams.binningVerticalMode);
+        commands.emplace_back(new SetBinningVerticalModeCommand(cameraParams.binningVerticalMode));
     }
         break;
     default:
         return;
     }
 
+    if (!commands.empty()) {
+        submitCommands(cameraParams.isMaster, std::move(commands));
+    }
+
     baslerSettingsObject.saveParams(cameraParams);
 }
 
-void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
+void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
+                                                        std::vector<std::unique_ptr<ParameterCommand> > &commands)
 {
     const double safetyMargin = 0.99;
-    std::vector<std::unique_ptr<ParameterCommand>> commands;
 
     if(type == BaslerConstants::SettingTypes::AcquisitionFramerate){
         cameraParams.acquisitionFrameRate = value.toDouble();
@@ -241,20 +247,16 @@ void CameraManager::processExposureAndFramerateChanging(BaslerCameraParams &came
         }        
         commands.emplace_back(new SetExposureCommand(cameraParams.exposureTime));
     }
-
-    if (!commands.empty()) {
-        submitCommands(cameraParams.isMaster, std::move(commands));
-    }
 }
 
-void CameraManager::processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
+void CameraManager::processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
+                                          std::vector<std::unique_ptr<ParameterCommand> > &commands)
 {
     QList<BaslerConstants::SettingTypes> commandsOrder;
     calcRoiOnAxe(cameraParams.width, cameraParams.offsetX, cameraParams.binningHorizontal,
                  type, value, MAX_WIDTH, commandsOrder);
     cameraParams.offsetX = (cameraParams.offsetX / 4) * 4;
 
-    std::vector<std::unique_ptr<ParameterCommand>> commands;
     foreach(auto cmd, commandsOrder){
         switch(cmd){
         case BaslerConstants::BinningAny:
@@ -272,17 +274,16 @@ void CameraManager::processRoiAndBinningX(BaslerCameraParams &cameraParams, Basl
             break;
         }
     }
-    submitCommands(cameraParams.isMaster, std::move(commands));
 }
 
-void CameraManager::processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value)
+void CameraManager::processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
+                                          std::vector<std::unique_ptr<ParameterCommand> > &commands)
 {
     QList<BaslerConstants::SettingTypes> commandsOrder;
     calcRoiOnAxe(cameraParams.height, cameraParams.offsetY, cameraParams.binningVertical,
                  type, value, MAX_HEIGHT, commandsOrder);
     cameraParams.offsetY = (cameraParams.offsetY / 2) * 2;
 
-    std::vector<std::unique_ptr<ParameterCommand>> commands;
     foreach(auto cmd, commandsOrder){
         switch(cmd){
         case BaslerConstants::BinningAny:
@@ -300,7 +301,6 @@ void CameraManager::processRoiAndBinningY(BaslerCameraParams &cameraParams, Basl
             break;
         }
     }
-    submitCommands(cameraParams.isMaster, std::move(commands));
 }
 
 void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning,
@@ -364,26 +364,27 @@ int CameraManager::maxOutSize(int maxSize, int binning)
 
 void CameraManager::setGain(bool isMaster, double value)
 {
-    if (isMaster && m_master) m_master->setGain(value);
-    else if (!isMaster && m_slave) m_slave->setGain(value);
+
+    if (isMaster && m_master) m_master->applyGainChanging(value);
+    else if (!isMaster && m_slave) m_slave->applyGainChanging(value);
 }
 
 void CameraManager::setPixelFormat(bool isMaster, int value)
 {
-    if (isMaster && m_master) m_master->setPixelFormat(value);
-    else if (!isMaster && m_slave) m_slave->setPixelFormat(value);
+    if (isMaster && m_master) m_master->applyPixelFormatChanging(value);
+    else if (!isMaster && m_slave) m_slave->applyPixelFormatChanging(value);
 }
 
 void CameraManager::setBinningHorizontalMode(bool isMaster, BinningHorizontalModeEnums mode)
 {
-    if (isMaster && m_master) m_master->setBinningHorizontalMode(mode);
-    else if (!isMaster && m_slave) m_slave->setBinningHorizontalMode(mode);
+    if (isMaster && m_master) m_master->applyBinningHorizontalModeChanging(mode);
+    else if (!isMaster && m_slave) m_slave->applyBinningHorizontalModeChanging(mode);
 }
 
 void CameraManager::setBinningVerticalMode(bool isMaster, BinningVerticalModeEnums mode)
 {
-    if (isMaster && m_master) m_master->setBinningVerticalMode(mode);
-    else if (!isMaster && m_slave) m_slave->setBinningVerticalMode(mode);
+    if (isMaster && m_master) m_master->applyBinningVerticalModeChanging(mode);
+    else if (!isMaster && m_slave) m_slave->applyBinningVerticalModeChanging(mode);
 }
 
 void CameraManager::submitCommands(bool isMaster, std::vector<std::unique_ptr<ParameterCommand> > commands)
