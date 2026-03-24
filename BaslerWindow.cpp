@@ -31,7 +31,7 @@ BaslerWindow::~BaslerWindow()
 
 void BaslerWindow::closeEvent(QCloseEvent *event)
 {
-    qDebug()<<"---------------------------------\nWindow close event";
+    qDebug()<<"\n----------------------------------\nWindow close event";
     if (m_cameraManager) {
         m_cameraManager->stop();
         delete m_cameraManager;
@@ -48,11 +48,13 @@ void BaslerWindow::on_pushButtonStartStop_clicked()
         m_cameraManager->start();
         ui->pushButtonStartStop->setText("Stop cameras");
         m_isRunning = true;
+        updateStartStopButtonStyle(true);
     } else {
         m_cameraManager->pause();
         ui->pushButtonStartStop->setText("Resume cameras");
         m_isRunning = false;
         statusBar()->showMessage("Stopped");
+        updateStartStopButtonStyle(false);
     }
 }
 
@@ -68,6 +70,7 @@ void BaslerWindow::onError(const QString& msg)
     qDebug()<<"Error: " + msg;
     ui->pushButtonStartStop->setText("Start cameras");
     m_isRunning = false;
+    updateStartStopButtonStyle(false);
 }
 
 void BaslerWindow::updateMasterImage(const QImage& img)
@@ -166,6 +169,125 @@ QRect BaslerWindow::getImageRect(const QSize &labelSize, const QSize &imageSize)
     return rect;
 }
 
+void BaslerWindow::updateStartStopButtonStyle(bool isRunning)
+{
+    if (isRunning) {
+        ui->pushButtonStartStop->setStyleSheet("background-color: #aa4444; color: white;"); // красный
+    } else {
+        ui->pushButtonStartStop->setStyleSheet("background-color: #88ff88; color: black;"); // зелёный
+    }
+}
+
+void BaslerWindow::applyDarkTheme()
+{
+    QString darkStyleSheet = R"(
+        QMainWindow {
+            background-color: #2b2b2b;
+        }
+        QWidget {
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+        }
+        QLabel {
+            color: #f0f0f0;
+        }
+        QPushButton {
+            background-color: #3c3c3c;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 4px;
+            color: #f0f0f0;
+        }
+        QPushButton:hover {
+            background-color: #4a4a4a;
+        }
+        QPushButton:pressed {
+            background-color: #2a2a2a;
+        }
+        QGroupBox {
+            border: 1px solid #555;
+            border-radius: 5px;
+            margin-top: 0.5em;
+            color: #f0f0f0;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 10px;
+            padding: 0 3px 0 3px;
+        }
+        QDoubleSpinBox, QSpinBox, QComboBox, QLineEdit {
+            background-color: #3c3c3c;
+            border: 1px solid #555;
+            border-radius: 3px;
+            color: #f0f0f0;
+            selection-background-color: #6a6a6a;
+        }
+        QDoubleSpinBox:focus, QSpinBox:focus, QComboBox:focus, QLineEdit:focus {
+            border: 1px solid #8a8a8a;
+        }
+        QComboBox::drop-down {
+            border: none;
+        }
+        QComboBox::down-arrow {
+            image: none;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid #f0f0f0;
+            margin-right: 2px;
+        }
+        QMenuBar {
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+        }
+        QMenuBar::item:selected {
+            background-color: #3c3c3c;
+        }
+        QMenu {
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+            border: 1px solid #555;
+        }
+        QMenu::item:selected {
+            background-color: #3c3c3c;
+        }
+        QStatusBar {
+            background-color: #2b2b2b;
+            color: #f0f0f0;
+        }
+        QRadioButton {
+            color: #f0f0f0;
+        }
+        QRadioButton::indicator {
+            width: 13px;
+            height: 13px;
+        }
+        QRadioButton::indicator:unchecked {
+            border: 1px solid #888;
+            background-color: #3c3c3c;
+            border-radius: 7px;
+        }
+        QRadioButton::indicator:checked {
+            border: 1px solid #888;
+            background-color: #66ff66;
+            border-radius: 7px;
+        }
+        QLabel#labelHS, QLabel#labelOC {
+            background-color: #1e1e1e;
+            border: 1px solid #555;
+        }
+    )";
+
+    qApp->setStyleSheet(darkStyleSheet);
+    updateStartStopButtonStyle(m_isRunning);
+}
+
+void BaslerWindow::applyLightTheme()
+{
+    qDebug()<<"LIGHT!";
+    qApp->setStyleSheet("");
+    updateStartStopButtonStyle(m_isRunning);
+}
+
 void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()
 {
     QString checkPath;
@@ -206,6 +328,7 @@ void BaslerWindow::setupProject()
     m_settings = IniFileLoader::createSettingsObject(VER_PRODUCTNAME_STR);    
     ui->lineEditSavingPath->setText(m_settings->value("Pathes/saving").toString());
     statusBar()->showMessage("Not started");
+    applyDarkTheme();
 }
 
 void BaslerWindow::initCameraManager()
@@ -235,6 +358,14 @@ void BaslerWindow::setupGui()
 
     ui->labelHS->setMouseTracking(true);
     ui->labelHS->installEventFilter(this);
+
+    bool darkMode = m_settings->value("Appearance/darkMode", false).toBool();
+    ui->actionDarkMode->setChecked(darkMode);
+    if (darkMode) {
+        applyDarkTheme();
+    } else {
+        applyLightTheme();
+    }
 }
 
 void BaslerWindow::on_pushButtonOpenDataFolder_clicked()
@@ -243,3 +374,13 @@ void BaslerWindow::on_pushButtonOpenDataFolder_clicked()
     dir.setPath(m_settings->value("Pathes/saving").toString());
     QDesktopServices::openUrl(QUrl::fromLocalFile(dir.absolutePath()));
 }
+
+void BaslerWindow::on_actionDarkMode_triggered()
+{
+    if(ui->actionDarkMode->isChecked()){
+        applyDarkTheme();
+    }else{
+        applyLightTheme();
+    }
+}
+

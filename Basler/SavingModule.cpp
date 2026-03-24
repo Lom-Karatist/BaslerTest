@@ -122,7 +122,7 @@ QImage SavingModule::convertToQImage(const QByteArray &data, int width, int heig
         bytesPerPixel = 1;
         break;
     case PixelType_Mono12:
-    case PixelType_Mono16:
+    case PixelType_Mono12p:
         format = QImage::Format_Grayscale16;
         bytesPerPixel = 2;
         break;
@@ -139,7 +139,8 @@ QImage SavingModule::convertToQImage(const QByteArray &data, int width, int heig
 
     QImage image(reinterpret_cast<const uchar*>(data.constData()), width, height,
                  width * bytesPerPixel, format);
-    return image.copy(); // независимая копия
+
+    return image.copy();
 }
 
 bool SavingModule::isNeedToSave() const

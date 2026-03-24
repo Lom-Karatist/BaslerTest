@@ -34,6 +34,8 @@ private slots:
 
     void on_pushButtonOpenDataFolder_clicked();
 
+    void on_actionDarkMode_triggered();
+
 private:
     /**
      * @brief setupProject   Function that setups project
@@ -49,6 +51,11 @@ private:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
     QRect getImageRect(const QSize &labelSize, const QSize &imageSize);
+
+    void updateStartStopButtonStyle(bool isRunning);
+
+    void applyDarkTheme();
+    void applyLightTheme();
 
 
     Ui::BaslerWindow *ui;

@@ -304,6 +304,7 @@ border:none;
     </widget>
     <addaction name="menu_2"/>
     <addaction name="actionShowHsValues"/>
+    <addaction name="actionDarkMode"/>
    </widget>
    <addaction name="menu"/>
   </widget>
@@ -339,6 +340,17 @@ border:none;
    </property>
    <property name="text">
     <string>Отображать значения под курсором для гиперспектрометра</string>
+   </property>
+  </action>
+  <action name="actionDarkMode">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="checked">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Ночной режим</string>
    </property>
   </action>
  </widget>
