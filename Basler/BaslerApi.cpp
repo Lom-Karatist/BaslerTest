@@ -19,12 +19,14 @@ BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *p
 
 BaslerApi::~BaslerApi()
 {
+    qDebug()<<"Camera API destructor";
     stopGrabbing();
     if (m_camera) {
         m_camera->Close();
         delete m_camera;
         m_camera = nullptr;
     }
+    qDebug()<<"Camera API destructor OK";
 }
 
 void BaslerApi::run()

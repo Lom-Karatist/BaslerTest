@@ -18,34 +18,27 @@ BaslerWindow::BaslerWindow(QWidget *parent)
     , m_isRunning(false)
 {
     setupProject();
-
-    m_cameraManager = new CameraManager(this, m_settings->value("Cameras/isMasterSlaveNeeded").toBool());
-    connect(m_cameraManager, &CameraManager::ready, this, &BaslerWindow::onManagerReady);
-    connect(m_cameraManager, &CameraManager::errorOccurred, this, &BaslerWindow::onError);
-    connect(m_cameraManager, &CameraManager::masterImageReady, this, &BaslerWindow::updateMasterImage);
-    connect(m_cameraManager, &CameraManager::slaveImageReady, this, &BaslerWindow::updateSlaveImage);
-
-    setupSettingBoxes(ui->widgetOCSettings, "Настройки обзорной камеры", m_cameraManager->ocParams());
-    setupSettingBoxes(ui->widgetHSSettings, "Настройки камеры гиперспектрометра",  m_cameraManager->hsParams());
-
-    m_saveFormatGroup = new QButtonGroup(this);
-    m_saveFormatGroup->addButton(ui->radioButtonSaveBmp, 0);
-    m_saveFormatGroup->addButton(ui->radioButtonSaveBinary, 1);
-    connect(m_saveFormatGroup, &QButtonGroup::idClicked, m_cameraManager, &CameraManager::onSavingModeChanged);
-    m_cameraManager->setSavingPath(ui->lineEditSavingPath->text());
+    initCameraManager();
+    setupGui();
 }
 
 BaslerWindow::~BaslerWindow()
 {
+    qDebug()<<"Window destructor";
     delete ui;
+    qDebug()<<"Window destructor ok";
 }
 
 void BaslerWindow::closeEvent(QCloseEvent *event)
 {
+    qDebug()<<"---------------------------------\nWindow close event";
     if (m_cameraManager) {
         m_cameraManager->stop();
+        delete m_cameraManager;
+        m_cameraManager = nullptr;
     }
     event->accept();
+    qDebug()<<"Window close event accepted";
 }
 
 void BaslerWindow::on_pushButtonStartStop_clicked()
@@ -79,6 +72,8 @@ void BaslerWindow::onError(const QString& msg)
 
 void BaslerWindow::updateMasterImage(const QImage& img)
 {
+    m_currentMasterImage = img;
+
     QPixmap pix = QPixmap::fromImage(img);
     ui->labelHS->setPixmap(pix.scaled(ui->labelHS->size(),
                                         Qt::KeepAspectRatio,
@@ -99,6 +94,76 @@ void BaslerWindow::setupSettingBoxes(BaslerSettingsForm *form, QString formName,
     form->setCameraParams(params);
     connect(form, &BaslerSettingsForm::settingsWereChanged, m_cameraManager, &CameraManager::onSettingsChanged);
     connect(m_cameraManager, &CameraManager::forceParameterChanging, form, &BaslerSettingsForm::updateValueInGui);
+}
+
+bool BaslerWindow::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == ui->labelHS && ui->actionShowHsValues->isChecked())
+    {
+        if (event->type() == QEvent::MouseMove)
+        {
+            QMouseEvent *mouseEvent = static_cast<QMouseEvent*>(event);
+            if (!m_currentMasterImage.isNull())
+            {
+                QPoint pos = mouseEvent->pos();
+                QRect imageRect = getImageRect(ui->labelHS->size(), m_currentMasterImage.size());
+                if (imageRect.contains(pos))
+                {
+                    int x = (pos.x() - imageRect.x()) * m_currentMasterImage.width() / imageRect.width();
+                    int y = (pos.y() - imageRect.y()) * m_currentMasterImage.height() / imageRect.height();
+
+                    if (x >= 0 && x < m_currentMasterImage.width() && y >= 0 && y < m_currentMasterImage.height())
+                    {
+                        QRgb pixel = m_currentMasterImage.pixel(x, y);
+                        int gray = qGray(pixel);
+                        m_masterOverlay->setText(QString("X=%1 Y=%2 Value=%3").arg(x).arg(y).arg(gray));
+                        m_masterOverlay->adjustSize();
+                        m_masterOverlay->move(ui->labelHS->width() - m_masterOverlay->width() - 5, 5);
+                        m_masterOverlay->show();
+                    }
+                    else
+                        m_masterOverlay->hide();
+                }
+                else
+                    m_masterOverlay->hide();
+            }
+            return true;
+        }
+        else if (event->type() == QEvent::Leave)
+        {
+            m_masterOverlay->hide();
+        }
+    }
+    return QMainWindow::eventFilter(watched, event);
+}
+
+QRect BaslerWindow::getImageRect(const QSize &labelSize, const QSize &imageSize)
+{
+    if (imageSize.isEmpty()) return QRect();
+
+    QRect rect;
+    double ratioLabel = (double)labelSize.width() / labelSize.height();
+    double ratioImage = (double)imageSize.width() / imageSize.height();
+
+    if (ratioImage > ratioLabel)
+    {
+        int newWidth = labelSize.width();
+        int newHeight = newWidth / ratioImage;
+        rect.setX(0);
+        rect.setY((labelSize.height() - newHeight) / 2);
+        rect.setWidth(newWidth);
+        rect.setHeight(newHeight);
+    }
+    else
+    {
+        int newHeight = labelSize.height();
+        int newWidth = newHeight * ratioImage;
+        rect.setX((labelSize.width() - newWidth) / 2);
+        rect.setY(0);
+        rect.setWidth(newWidth);
+        rect.setHeight(newHeight);
+    }
+    return rect;
 }
 
 void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()
@@ -141,6 +206,35 @@ void BaslerWindow::setupProject()
     m_settings = IniFileLoader::createSettingsObject(VER_PRODUCTNAME_STR);    
     ui->lineEditSavingPath->setText(m_settings->value("Pathes/saving").toString());
     statusBar()->showMessage("Not started");
+}
+
+void BaslerWindow::initCameraManager()
+{
+    m_cameraManager = new CameraManager(this, m_settings->value("Cameras/isMasterSlaveNeeded").toBool());
+    connect(m_cameraManager, &CameraManager::ready, this, &BaslerWindow::onManagerReady);
+    connect(m_cameraManager, &CameraManager::errorOccurred, this, &BaslerWindow::onError);
+    connect(m_cameraManager, &CameraManager::masterImageReady, this, &BaslerWindow::updateMasterImage);
+    connect(m_cameraManager, &CameraManager::slaveImageReady, this, &BaslerWindow::updateSlaveImage);
+    m_cameraManager->setSavingPath(ui->lineEditSavingPath->text());
+}
+
+void BaslerWindow::setupGui()
+{
+    setupSettingBoxes(ui->widgetOCSettings, "Настройки обзорной камеры", m_cameraManager->ocParams());
+    setupSettingBoxes(ui->widgetHSSettings, "Настройки камеры гиперспектрометра",  m_cameraManager->hsParams());
+
+    m_saveFormatGroup = new QButtonGroup(this);
+    m_saveFormatGroup->addButton(ui->radioButtonSaveBmp, 0);
+    m_saveFormatGroup->addButton(ui->radioButtonSaveBinary, 1);
+    connect(m_saveFormatGroup, &QButtonGroup::idClicked, m_cameraManager, &CameraManager::onSavingModeChanged);
+
+    m_masterOverlay = new QLabel(ui->labelHS);
+    m_masterOverlay->setAlignment(Qt::AlignTop | Qt::AlignRight);
+    m_masterOverlay->setStyleSheet("QLabel { background-color: rgba(0,0,0,128); color: white; padding: 2px; border-radius: 3px; }");
+    m_masterOverlay->hide();
+
+    ui->labelHS->setMouseTracking(true);
+    ui->labelHS->installEventFilter(this);
 }
 
 void BaslerWindow::on_pushButtonOpenDataFolder_clicked()

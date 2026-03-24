@@ -84,7 +84,8 @@ private:
     QAtomicInt m_connectedCount;
     bool m_ready;                  // флаг готовности
     QMutex m_mutex;                // защита m_ready
-    bool m_isImageNeeded;
+    bool m_isImageNeeded;    
+    bool m_stopped = false;
 
     SavingModule m_savingModule;
     QString m_frameTimeStamp;

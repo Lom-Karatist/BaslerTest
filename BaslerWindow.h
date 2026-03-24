@@ -6,6 +6,7 @@
 #include <QCloseEvent>
 #include <BaslerSettingsForm.h>
 #include <QButtonGroup>
+#include <QLabel>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class BaslerWindow; }
@@ -38,12 +39,25 @@ private:
      * @brief setupProject   Function that setups project
      */
     void setupProject();
+
+    void initCameraManager();
+
+    void setupGui();
+
     void setupSettingBoxes(BaslerSettingsForm *form, QString formName, BaslerCameraParams params);
+
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
+    QRect getImageRect(const QSize &labelSize, const QSize &imageSize);
+
 
     Ui::BaslerWindow *ui;
     QString m_title;
     QSettings *m_settings;      //!< Settings
     QButtonGroup *m_saveFormatGroup;
+
+    QLabel *m_masterOverlay;
+    QImage m_currentMasterImage;
 
     CameraManager *m_cameraManager;
     bool m_isRunning;

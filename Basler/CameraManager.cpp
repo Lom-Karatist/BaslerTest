@@ -41,8 +41,10 @@ CameraManager::CameraManager(QObject *parent, bool isMasterSlaveNeeded)
 
 CameraManager::~CameraManager()
 {
+    qDebug()<<"Camera manager destructor";
     stop();
     PylonTerminate();
+    qDebug()<<"Camera manager destructor ok";
 }
 
 void CameraManager::start()
@@ -60,19 +62,25 @@ void CameraManager::pause()
 
 void CameraManager::stop()
 {
+    qDebug()<<"Camera manager stop";
+    if (m_stopped) return;
+        m_stopped = true;
+
     if (m_master) m_master->stopGrabbing();
     if (m_slave) m_slave->stopGrabbing();
 
     QThreadPool::globalInstance()->waitForDone(2000);
 
+    qDebug()<<"Camera manager modules removing...";
     if (m_master) {
-        m_master->deleteLater();
+        delete m_master;
         m_master = nullptr;
     }
     if (m_slave) {
-        m_slave->deleteLater();
+        delete m_slave;
         m_slave = nullptr;
     }
+    qDebug()<<"Camera manager stop ok";
 }
 
 void CameraManager::setSavingPath(const QString path)
@@ -84,7 +92,7 @@ void CameraManager::onMasterConnected(bool success)
 {
     if (!success) {
         emit errorOccurred("Master camera failed to connect");
-        stop();
+//        stop();
         return;
     }
 
@@ -100,7 +108,7 @@ void CameraManager::onSlaveConnected(bool success)
 {
     if (!success) {
         emit errorOccurred("Slave camera failed to connect");
-        stop();
+//        stop();
         return;
     }
 
@@ -115,14 +123,14 @@ void CameraManager::onSlaveConnected(bool success)
 void CameraManager::onMasterError(const QString& err)
 {
     emit errorOccurred("Master: " + err);
-    stop();
+//    stop();
     m_ready = false;
 }
 
 void CameraManager::onSlaveError(const QString& err)
 {
     emit errorOccurred("Slave: " + err);
-    stop();
+//    stop();
     m_ready = false;
 }
 
