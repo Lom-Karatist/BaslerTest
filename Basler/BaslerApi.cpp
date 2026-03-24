@@ -327,13 +327,17 @@ void BaslerApi::applyPendingCommands()
         commands.swap(m_pendingCommands);
     }
 
-    pauseGrabbing();
+    bool wasGrabbing = m_isGrabbing.load();
+    if (wasGrabbing) {
+        pauseGrabbing();
+    }
 
     if (commands.empty()) return;
 
     for (auto& cmd : commands) {
         cmd->execute(this);
     }
-
-    startGrabbing();
+    if (wasGrabbing) {
+        startGrabbing();
+    }
 }
