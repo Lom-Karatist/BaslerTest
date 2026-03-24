@@ -28,7 +28,7 @@ void myMessageOutput(QtMsgType Mtype, const QMessageLogContext &context, const Q
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
-    QrcFilesRestorer::restoreFilesFromQrc(":/Basler/4Release/");
+    QrcFilesRestorer::restoreFilesFromQrc(":/4Release/");
 //    qInstallMessageHandler(myMessageOutput);
     BaslerWindow w;
     w.show();

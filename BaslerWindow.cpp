@@ -31,14 +31,17 @@ BaslerWindow::~BaslerWindow()
 
 void BaslerWindow::closeEvent(QCloseEvent *event)
 {
-    qDebug()<<"\n----------------------------------\nWindow close event";
+    qDebug() << "\n----------------------------------\nWindow close event";
     if (m_cameraManager) {
+        qDebug() << "Calling m_cameraManager->stop()";
         m_cameraManager->stop();
+        qDebug() << "After stop(), deleting m_cameraManager";
         delete m_cameraManager;
+        qDebug() << "After delete m_cameraManager";
         m_cameraManager = nullptr;
     }
     event->accept();
-    qDebug()<<"Window close event accepted";
+    qDebug() << "Window close event accepted";
 }
 
 void BaslerWindow::on_pushButtonStartStop_clicked()
@@ -283,7 +286,6 @@ void BaslerWindow::applyDarkTheme()
 
 void BaslerWindow::applyLightTheme()
 {
-    qDebug()<<"LIGHT!";
     qApp->setStyleSheet("");
     updateStartStopButtonStyle(m_isRunning);
 }

@@ -6,9 +6,5 @@
         <file>Icons/open-folder.png</file>
         <file>Icons/open-folder_hover.png</file>
         <file>Icons/open-folder_pressed.png</file>
-        <file>Basler/4Release/Basler Test.ini</file>
-        <file>Basler/4Release/Basler.Pylon.dll</file>
-        <file>Basler/4Release/HS.ini</file>
-        <file>Basler/4Release/OC.ini</file>
     </qresource>
 </RCC>
