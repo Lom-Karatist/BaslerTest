@@ -14,7 +14,7 @@ class CameraManager : public QObject
     Q_OBJECT
 
 public:
-    explicit CameraManager(QObject *parent = nullptr);
+    explicit CameraManager(QObject *parent = nullptr, bool isMasterSlaveNeeded = true);
     ~CameraManager();
     void start();
     void pause();
@@ -29,7 +29,7 @@ public:
     const BaslerCameraParams &ocParams() const;
     void setOcParams(const BaslerCameraParams &newOcParams);
 
-    void setIsNeedToSave(bool newIsNeedToSave);
+    void setIsNeedToSave(bool newIsNeedToSave, bool isNeedToSaveHS, bool isNeedToSaveOC);
 
 signals:
     void ready();
@@ -88,6 +88,8 @@ private:
 
     SavingModule m_savingModule;
     QString m_frameTimeStamp;
+    bool m_isNeedToSaveHS;
+    bool m_isNeedToSaveOC;
 
     static const int MAX_WIDTH = 1936;
     static const int MAX_HEIGHT = 1216;

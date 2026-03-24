@@ -19,7 +19,7 @@ BaslerWindow::BaslerWindow(QWidget *parent)
 {
     setupProject();
 
-    m_cameraManager = new CameraManager(this);
+    m_cameraManager = new CameraManager(this, m_settings->value("Cameras/isMasterSlaveNeeded").toBool());
     connect(m_cameraManager, &CameraManager::ready, this, &BaslerWindow::onManagerReady);
     connect(m_cameraManager, &CameraManager::errorOccurred, this, &BaslerWindow::onError);
     connect(m_cameraManager, &CameraManager::masterImageReady, this, &BaslerWindow::updateMasterImage);
@@ -124,10 +124,10 @@ void BaslerWindow::on_pushButtonSaving_clicked()
 {
     if(ui->pushButtonSaving->isChecked()){
         ui->pushButtonSaving->setText("Остановить запись");
-        m_cameraManager->setIsNeedToSave(true);
+        m_cameraManager->setIsNeedToSave(true, ui->actionSaveHS->isChecked(), ui->actionSaveOC->isChecked());
     }else{
         ui->pushButtonSaving->setText("Начать запись");
-        m_cameraManager->setIsNeedToSave(false);
+        m_cameraManager->setIsNeedToSave(false,  ui->actionSaveHS->isChecked(), ui->actionSaveOC->isChecked());
     }
 }
 
@@ -137,11 +137,11 @@ void BaslerWindow::setupProject()
     QApplication::setStyle(QStyleFactory::create("Fusion"));
     ui->setupUi(this);
     this->setWindowTitle(m_title + ". Пожалуйста, подождите, идет запуск ПО...");
-    m_settings = IniFileLoader::createSettingsObject(VER_PRODUCTNAME_STR);
+
+    m_settings = IniFileLoader::createSettingsObject(VER_PRODUCTNAME_STR);    
     ui->lineEditSavingPath->setText(m_settings->value("Pathes/saving").toString());
     statusBar()->showMessage("Not started");
 }
-
 
 void BaslerWindow::on_pushButtonOpenDataFolder_clicked()
 {
@@ -149,4 +149,3 @@ void BaslerWindow::on_pushButtonOpenDataFolder_clicked()
     dir.setPath(m_settings->value("Pathes/saving").toString());
     QDesktopServices::openUrl(QUrl::fromLocalFile(dir.absolutePath()));
 }
-

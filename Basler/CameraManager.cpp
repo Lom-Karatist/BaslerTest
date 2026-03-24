@@ -3,7 +3,7 @@
 #include <QDebug>
 #include <QDir>
 
-CameraManager::CameraManager(QObject *parent)
+CameraManager::CameraManager(QObject *parent, bool isMasterSlaveNeeded)
     : QObject(parent)
     , m_master(nullptr)
     , m_slave(nullptr)
@@ -12,6 +12,8 @@ CameraManager::CameraManager(QObject *parent)
     , m_connectedCount(0)
     , m_ready(false)
     , m_isImageNeeded(true)
+    , m_isNeedToSaveHS(true)
+    , m_isNeedToSaveOC(true)
 {
     PylonInitialize();
     m_hsParams = m_masterSettings.loadParamsFromFile();
@@ -130,7 +132,7 @@ void CameraManager::onMasterRawData(const QByteArray& data, int w, int h, int pi
     if (!img.isNull() && m_isImageNeeded) {
         emit masterImageReady(img);
     }
-    if(m_savingModule.isNeedToSave()){
+    if(m_savingModule.isNeedToSave() && m_isNeedToSaveHS){
         m_savingModule.saveDataAsync(data, w, h, pixelFormat, "/master", m_frameTimeStamp);
     }
 }
@@ -143,7 +145,7 @@ void CameraManager::onSlaveRawData(const QByteArray& data, int w, int h, int pix
     }
     if(m_savingModule.isNeedToSave()){
         m_frameTimeStamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss_zzz");
-        if (m_savingModule.isNeedToSave()) {
+        if (m_savingModule.isNeedToSave() && m_isNeedToSaveOC) {
             m_savingModule.saveDataAsync(data, w, h, pixelFormat, "/slave", m_frameTimeStamp);
         }
     }
@@ -395,9 +397,11 @@ void CameraManager::submitCommands(bool isMaster, std::vector<std::unique_ptr<Pa
         m_slave->submitCommands(std::move(commands));
 }
 
-void CameraManager::setIsNeedToSave(bool newIsNeedToSave)
+void CameraManager::setIsNeedToSave(bool newIsNeedToSave, bool isNeedToSaveHS, bool isNeedToSaveOC)
 {
-    m_savingModule.setIsNeedToSave(newIsNeedToSave);
+    m_isNeedToSaveHS = isNeedToSaveHS;
+    m_isNeedToSaveOC = isNeedToSaveOC;
+    m_savingModule.setIsNeedToSave(newIsNeedToSave);    
 }
 
 const BaslerCameraParams &CameraManager::ocParams() const

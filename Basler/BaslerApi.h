@@ -42,7 +42,7 @@ public:
      * @param params Структура с параметрами камеры.
      * @param parent Родительский QObject.
      */
-    explicit BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *parent = nullptr);
+    explicit BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *parent = nullptr, bool isMasterSlaveNeeded = true);
 
     /// Деструктор. Освобождает ресурсы камеры и Pylon (если не было глобальной инициализации).
     ~BaslerApi();
@@ -239,6 +239,7 @@ private:
 
     bool m_isConnected;             //!< Флаг успешного подключения камеры.
     bool m_isMaster;                //!< Роль камеры (true — мастер).
+    bool m_isMasterSlaveNeeded;     //!< Флаг необходимости настройки мастер/слейв
 
     BaslerCameraParams m_params;    //!< Структура с текущими параметрами камеры.
 

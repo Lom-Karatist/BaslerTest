@@ -4,12 +4,13 @@
 #include <pylon/ImageEventHandler.h>
 #include <QApplication>
 
-BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *parent)
+BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *parent, bool isMasterSlaveNeeded)
     : QObject(parent)
     , m_isActive(true)
     , m_isGrabbing(false)
     , m_isConnected(false)
     , m_isMaster(isMaster)
+    , m_isMasterSlaveNeeded(isMasterSlaveNeeded)
     , m_params(params)
     , m_camera(nullptr)    
 {
@@ -35,13 +36,15 @@ void BaslerApi::run()
         return;
     }
 
-    if (m_camera->TriggerMode.IsWritable()) {
-        m_camera->TriggerMode.SetValue(TriggerMode_Off);
-        qDebug() << "TriggerMode set to Off";
+    if(m_isMasterSlaveNeeded){
+        configureMasterSlave();
+    }else{
+        if (m_camera->TriggerMode.IsWritable()) {
+            m_camera->TriggerMode.SetValue(TriggerMode_Off);
+            qDebug() << "TriggerMode set to Off";
+        }
     }
-
     setupCameraFeatures();
-//    configureMasterSlave();
     m_camera->StartGrabbing();
 
     while (m_isActive.load()) {
@@ -255,21 +258,9 @@ void BaslerApi::configureMasterSlave()
 
     try {
         if (m_isMaster) {
-            // --- Настройка мастера ---
-            // Отключаем внешний триггер (работа по внутреннему таймеру)
             m_camera->TriggerSelector.SetValue(TriggerSelector_FrameStart);
             m_camera->TriggerMode.SetValue(TriggerMode_Off);
 
-            // Включаем AcquisitionFrameRate и устанавливаем желаемое значение
-            if (GenApi::IsAvailable(m_camera->AcquisitionFrameRateEnable)) {
-                m_camera->AcquisitionFrameRateEnable.SetValue(true);
-            }
-            if (GenApi::IsAvailable(m_camera->AcquisitionFrameRate)) {
-                // Желаемую частоту можно передавать через m_params (добавить поле)
-                m_camera->AcquisitionFrameRate.SetValue(m_params.acquisitionFrameRate);
-            }
-
-            // Настройка линии выхода (используем Line3, как в документе)
             if (GenApi::IsAvailable(m_camera->LineSelector)) {
                 m_camera->LineSelector.SetValue(LineSelector_Line3);
             }
@@ -277,18 +268,29 @@ void BaslerApi::configureMasterSlave()
                 m_camera->LineMode.SetValue(LineMode_Output);
             }
             if (GenApi::IsAvailable(m_camera->LineSource)) {
-                // Сигнал "ожидание триггера кадра" – именно он нужен для синхронизации
-                m_camera->LineSource.SetValue(LineSource_FrameTriggerWait);
+                m_camera->LineSource.SetValue(LineSource_ExposureActive);
+            }
+            if (GenApi::IsAvailable(m_camera->LineInverter)) {
+                m_camera->LineInverter.SetValue(true);
             }
         } else {
-            // --- Настройка слейва ---
-            // Включаем внешний триггер на Line4
             m_camera->TriggerSelector.SetValue(TriggerSelector_FrameStart);
             m_camera->TriggerMode.SetValue(TriggerMode_On);
-            m_camera->TriggerSource.SetValue(TriggerSource_Line4);
+            m_camera->TriggerSource.SetValue(TriggerSource_Line3);
             m_camera->TriggerActivation.SetValue(TriggerActivation_RisingEdge);
 
-            // Выключаем AcquisitionFrameRate (слейв следует за мастером)
+            if (GenApi::IsAvailable(m_camera->LineSelector)) {
+                m_camera->LineSelector.SetValue(LineSelector_Line4);
+            }
+            if (GenApi::IsAvailable(m_camera->LineMode)) {
+                m_camera->LineMode.SetValue(LineMode_Output);
+            }
+            if (GenApi::IsAvailable(m_camera->LineSource)) {
+                m_camera->LineSource.SetValue(LineSource_ExposureActive);
+            }
+            if (GenApi::IsAvailable(m_camera->LineInverter)) {
+                m_camera->LineInverter.SetValue(true);
+            }
             if (GenApi::IsAvailable(m_camera->AcquisitionFrameRateEnable)) {
                 m_camera->AcquisitionFrameRateEnable.SetValue(false);
             }
