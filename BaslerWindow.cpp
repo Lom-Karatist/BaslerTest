@@ -323,7 +323,7 @@ void BaslerWindow::setupProject()
     m_title.append(VER_PRODUCTNAME_STR).append(" v_").append(VER_FILEVERSION_STR);
     QApplication::setStyle(QStyleFactory::create("Fusion"));
     ui->setupUi(this);
-    this->setWindowTitle(m_title + ". Пожалуйста, подождите, идет запуск ПО...");
+    this->setWindowTitle(m_title);
 
     m_settings = IniFileLoader::createSettingsObject(VER_PRODUCTNAME_STR);    
     ui->lineEditSavingPath->setText(m_settings->value("Pathes/saving").toString());
@@ -379,8 +379,10 @@ void BaslerWindow::on_actionDarkMode_triggered()
 {
     if(ui->actionDarkMode->isChecked()){
         applyDarkTheme();
+        m_settings->setValue("Appearance/darkMode", true);
     }else{
         applyLightTheme();
+        m_settings->setValue("Appearance/darkMode", false);
     }
 }
 
