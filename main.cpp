@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
     QrcFilesRestorer::restoreFilesFromQrc(":/Basler/4Release/");
-    qInstallMessageHandler(myMessageOutput);
+//    qInstallMessageHandler(myMessageOutput);
     BaslerWindow w;
     w.show();
     return a.exec();

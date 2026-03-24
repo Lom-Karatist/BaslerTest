@@ -288,6 +288,19 @@ void BaslerWindow::applyLightTheme()
     updateStartStopButtonStyle(m_isRunning);
 }
 
+void BaslerWindow::startRecordingBlink()
+{
+    if (m_blinkTimer->isActive()) return;
+    m_recordingIndicator->show();
+    m_blinkTimer->start();
+}
+
+void BaslerWindow::stopRecordingBlink()
+{
+    if (m_blinkTimer->isActive()) m_blinkTimer->stop();
+    m_recordingIndicator->hide();
+}
+
 void BaslerWindow::on_pushButtonOpenFolderSaving_clicked()
 {
     QString checkPath;
@@ -312,9 +325,11 @@ void BaslerWindow::on_pushButtonSaving_clicked()
     if(ui->pushButtonSaving->isChecked()){
         ui->pushButtonSaving->setText("Остановить запись");
         m_cameraManager->setIsNeedToSave(true, ui->actionSaveHS->isChecked(), ui->actionSaveOC->isChecked());
+        startRecordingBlink();
     }else{
         ui->pushButtonSaving->setText("Начать запись");
         m_cameraManager->setIsNeedToSave(false,  ui->actionSaveHS->isChecked(), ui->actionSaveOC->isChecked());
+        stopRecordingBlink();
     }
 }
 
@@ -366,6 +381,18 @@ void BaslerWindow::setupGui()
     } else {
         applyLightTheme();
     }
+
+    m_recordingIndicator = new QLabel(ui->pushButtonSaving);
+    m_recordingIndicator->setFixedSize(12, 12);
+    m_recordingIndicator->setStyleSheet("QLabel { background-color: #aa4444; border-radius: 6px; }");
+    m_recordingIndicator->move(10, (ui->pushButtonSaving->height() - 12) / 2);
+    m_recordingIndicator->hide();
+
+    m_blinkTimer = new QTimer(this);
+    m_blinkTimer->setInterval(500); // 500 мс
+    connect(m_blinkTimer, &QTimer::timeout, this, [this]() {
+        m_recordingIndicator->setVisible(!m_recordingIndicator->isVisible());
+    });
 }
 
 void BaslerWindow::on_pushButtonOpenDataFolder_clicked()

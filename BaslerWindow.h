@@ -7,6 +7,7 @@
 #include <BaslerSettingsForm.h>
 #include <QButtonGroup>
 #include <QLabel>
+#include <QTimer>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class BaslerWindow; }
@@ -57,6 +58,8 @@ private:
     void applyDarkTheme();
     void applyLightTheme();
 
+    void startRecordingBlink();     // запуск мигания
+    void stopRecordingBlink();      // остановка мигания
 
     Ui::BaslerWindow *ui;
     QString m_title;
@@ -68,5 +71,8 @@ private:
 
     CameraManager *m_cameraManager;
     bool m_isRunning;
+
+    QLabel *m_recordingIndicator;   // индикатор записи
+    QTimer *m_blinkTimer;           // таймер мигания
 };
 #endif // BASLERWINDOW_H
