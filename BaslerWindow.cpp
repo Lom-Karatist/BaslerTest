@@ -389,7 +389,7 @@ void BaslerWindow::setupGui()
     m_recordingIndicator->hide();
 
     m_blinkTimer = new QTimer(this);
-    m_blinkTimer->setInterval(500); // 500 мс
+    m_blinkTimer->setInterval(500);
     connect(m_blinkTimer, &QTimer::timeout, this, [this]() {
         m_recordingIndicator->setVisible(!m_recordingIndicator->isVisible());
     });

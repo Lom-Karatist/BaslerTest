@@ -367,11 +367,6 @@ void CameraManager::calcRoiOnAxe(int &size, int &offset, int &binning,
     }
 }
 
-int CameraManager::maxOutSize(int maxSize, int binning)
-{
-    return maxSize / binning;
-}
-
 void CameraManager::setGain(bool isMaster, double value)
 {
 
