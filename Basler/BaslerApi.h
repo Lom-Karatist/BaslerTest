@@ -1,38 +1,41 @@
 #ifndef BASLERAPI_H
 #define BASLERAPI_H
 
-#include <QRunnable>
-#include <QObject>
-#include <QImage>
 #include <QElapsedTimer>
+#include <QImage>
 #include <QMutex>
+#include <QObject>
+#include <QRunnable>
+#include <memory>
+
 #include "Types.h"
+//
 #include "Commands/ParameterCommand.h"
 #include "Commands/SetBinningHorizontalCommand.h"
+#include "Commands/SetBinningHorizontalModeCommand.h"
 #include "Commands/SetBinningVerticalCommand.h"
+#include "Commands/SetBinningVerticalModeCommand.h"
 #include "Commands/SetExposureCommand.h"
 #include "Commands/SetFramerateCommand.h"
+#include "Commands/SetGainCommand.h"
 #include "Commands/SetHeightCommand.h"
-#include "Commands/SetWidthCommand.h"
 #include "Commands/SetOffsetXCommand.h"
 #include "Commands/SetOffsetYCommand.h"
-#include "Commands/SetGainCommand.h"
 #include "Commands/SetPixelFormatCommand.h"
-#include "Commands/SetBinningHorizontalModeCommand.h"
-#include "Commands/SetBinningVerticalModeCommand.h"
+#include "Commands/SetWidthCommand.h"
 
 /**
  * @brief Класс для управления камерой Basler в отдельном потоке.
  *
- * Наследует QObject для работы с сигналами/слотами и QRunnable для выполнения в QThreadPool.
- * Обеспечивает инициализацию камеры, настройку параметров, поддержку режима master-slave,
- * асинхронный захват изображений и передачу данных через сигналы.
+ * Наследует QObject для работы с сигналами/слотами и QRunnable для выполнения в
+ * QThreadPool. Обеспечивает инициализацию камеры, настройку параметров,
+ * поддержку режима master-slave, асинхронный захват изображений и передачу
+ * данных через сигналы.
  *
- * Поток выполняет бесконечный цикл, управляемый атомарными флагами, что позволяет
- * приостанавливать и возобновлять захват без перезапуска потока.
+ * Поток выполняет бесконечный цикл, управляемый атомарными флагами, что
+ * позволяет приостанавливать и возобновлять захват без перезапуска потока.
  */
-class BaslerApi : public QObject, public QRunnable
-{
+class BaslerApi : public QObject, public QRunnable {
     Q_OBJECT
 
 public:
@@ -42,16 +45,20 @@ public:
      * @param params Структура с параметрами камеры.
      * @param parent Родительский QObject.
      */
-    explicit BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *parent = nullptr, bool isMasterSlaveNeeded = true);
+    explicit BaslerApi(bool isMaster, const BaslerCameraParams& params,
+                       QObject* parent = nullptr,
+                       bool isMasterSlaveNeeded = true);
 
-    /// Деструктор. Освобождает ресурсы камеры и Pylon (если не было глобальной инициализации).
+    /// Деструктор. Освобождает ресурсы камеры и Pylon (если не было глобальной
+    /// инициализации).
     ~BaslerApi();
 
     /**
      * @brief Запуск выполнения в потоке (реализация QRunnable).
      *
-     * Содержит основной цикл жизни потока: инициализация, настройка, бесконечный цикл
-     * с проверкой флагов m_isActive и m_isGrabbing, захват и отправка данных.
+     * Содержит основной цикл жизни потока: инициализация, настройка,
+     * бесконечный цикл с проверкой флагов m_isActive и m_isGrabbing, захват и
+     * отправка данных.
      */
     void run() override;
 
@@ -74,8 +81,8 @@ public:
     /**
      * @brief Полное завершение работы потока.
      *
-     * Устанавливает флаг m_isActive в false, что приводит к выходу из цикла run().
-     * После этого поток завершается, камера закрывается.
+     * Устанавливает флаг m_isActive в false, что приводит к выходу из цикла
+     * run(). После этого поток завершается, камера закрывается.
      */
     void stopGrabbing();
 
@@ -175,7 +182,8 @@ public:
      *
      * Команды будут выполнены асинхронно в потоке run() с остановкой захвата.
      */
-    void submitCommands(std::vector<std::unique_ptr<ParameterCommand>> commands);
+    void submitCommands(
+        std::vector<std::unique_ptr<ParameterCommand>> commands);
 
 signals:
     /**
@@ -197,7 +205,8 @@ signals:
      * @param height Высота изображения.
      * @param pixelFormat Формат пикселей (значение из EPixelType).
      */
-    void rawDataReceived(const QByteArray& data, int width, int height, int pixelFormat);
+    void rawDataReceived(const QByteArray& data, int width, int height,
+                         int pixelFormat);
 
 private:
     /**
@@ -207,7 +216,8 @@ private:
     bool initializeCamera();
 
     /**
-     * @brief Настройка основных параметров камеры (экспозиция, размеры, формат и т.д.).
+     * @brief Настройка основных параметров камеры (экспозиция, размеры, формат
+     * и т.д.).
      *
      * Использует значения из m_params. Проверяет доступность каждого параметра.
      */
@@ -215,40 +225,47 @@ private:
 
     /** @brief Конфигурация режима master-slave.
      *
-     * Для мастера: отключает внешний триггер, включает генерацию кадров, настраивает выходной сигнал на Line3.
-     * Для слейва: включает внешний триггер на Line4, отключает собственную генерацию кадров.
+     * Для мастера: отключает внешний триггер, включает генерацию кадров,
+     * настраивает выходной сигнал на Line3. Для слейва: включает внешний
+     * триггер на Line4, отключает собственную генерацию кадров.
      */
     void configureMasterSlave();
 
     /**
      * @brief processRawData    Промежуточная функция обработки данных с матрицы
      *
-     * Преобразует данные с матриц сенсора для отправки через сигнал в менеджер камер.
+     * Преобразует данные с матриц сенсора для отправки через сигнал в менеджер
+     * камер.
      */
     void processRawData();
 
     /**
      * @brief Выполнить все накопленные команды из очереди.
      *
-     * Останавливает захват, последовательно выполняет команды и возобновляет захват.
+     * Останавливает захват, последовательно выполняет команды и возобновляет
+     * захват.
      */
     void applyPendingCommands();
 
-    std::atomic<bool> m_isActive;   //!< Флаг активности потока. true — поток должен работать.
-    std::atomic<bool> m_isGrabbing; //!< Флаг захвата. true — нужно захватывать и отправлять кадры.
+    std::atomic<bool>
+        m_isActive;  //!< Флаг активности потока. true — поток должен работать.
+    std::atomic<bool> m_isGrabbing;  //!< Флаг захвата. true — нужно захватывать
+                                     //!< и отправлять кадры.
 
-    bool m_isConnected;             //!< Флаг успешного подключения камеры.
-    bool m_isMaster;                //!< Роль камеры (true — мастер).
-    bool m_isMasterSlaveNeeded;     //!< Флаг необходимости настройки мастер/слейв
+    bool m_isConnected;  //!< Флаг успешного подключения камеры.
+    bool m_isMaster;  //!< Роль камеры (true — мастер).
+    bool m_isMasterSlaveNeeded;  //!< Флаг необходимости настройки мастер/слейв
 
-    BaslerCameraParams m_params;    //!< Структура с текущими параметрами камеры.
+    BaslerCameraParams m_params;  //!< Структура с текущими параметрами камеры.
 
-    CBaslerUniversalInstantCamera* m_camera;    //!< Указатель на объект камеры.
-    CGrabResultPtr m_ptrGrabResult;             //!< Умный указатель на результат захвата.    
+    CBaslerUniversalInstantCamera* m_camera;  //!< Указатель на объект камеры.
+    CGrabResultPtr m_ptrGrabResult;  //!< Умный указатель на результат захвата.
 
-    std::vector<std::unique_ptr<ParameterCommand>> m_pendingCommands;   //!< Очередь ожидающих выполнения команд.
-    std::atomic<bool> m_commandsPending{false};                         //!< Флаг наличия ожидающих команд.
-    QMutex m_commandsMutex;                                             //!< Мьютекс для защиты доступа к очереди команд.
+    std::vector<std::unique_ptr<ParameterCommand>>
+        m_pendingCommands;  //!< Очередь ожидающих выполнения команд.
+    std::atomic<bool> m_commandsPending{
+        false};  //!< Флаг наличия ожидающих команд.
+    QMutex m_commandsMutex;  //!< Мьютекс для защиты доступа к очереди команд.
 };
 
-#endif // BASLERAPI_H
+#endif  // BASLERAPI_H

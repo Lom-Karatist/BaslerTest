@@ -1,40 +1,38 @@
 #include "BaslerApi.h"
-#include <QThread>
-#include <QDebug>
+
 #include <pylon/ImageEventHandler.h>
+
 #include <QApplication>
+#include <QDebug>
+#include <QThread>
 
-BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params, QObject *parent, bool isMasterSlaveNeeded)
-    : QObject(parent)
-    , m_isActive(true)
-    , m_isGrabbing(false)
-    , m_isConnected(false)
-    , m_isMaster(isMaster)
-    , m_isMasterSlaveNeeded(isMasterSlaveNeeded)
-    , m_params(params)
-    , m_camera(nullptr)    
-{
+BaslerApi::BaslerApi(bool isMaster, const BaslerCameraParams& params,
+                     QObject* parent, bool isMasterSlaveNeeded)
+    : QObject(parent),
+      m_isActive(true),
+      m_isGrabbing(false),
+      m_isConnected(false),
+      m_isMaster(isMaster),
+      m_isMasterSlaveNeeded(isMasterSlaveNeeded),
+      m_params(params),
+      m_camera(nullptr) {}
 
-}
-
-BaslerApi::~BaslerApi()
-{
-    qDebug() << "BaslerApi destructor, m_camera =" << m_camera;
+BaslerApi::~BaslerApi() {
+    //    qDebug() << "BaslerApi destructor, m_camera =" << m_camera;
     stopGrabbing();
     if (m_camera) {
-        qDebug() << "Closing camera";
+        //        qDebug() << "Closing camera";
         if (m_camera->IsOpen()) {
             m_camera->Close();
         }
-        qDebug() << "Deleting camera object";
         delete m_camera;
         m_camera = nullptr;
+        qDebug() << "Basler camera object was destryed";
     }
-    qDebug() << "BaslerApi destructor finished";
+    //    qDebug() << "BaslerApi destructor finished";
 }
 
-void BaslerApi::run()
-{
+void BaslerApi::run() {
     m_isConnected = initializeCamera();
     emit connectionComplete(m_isConnected);
     if (!m_isConnected) {
@@ -42,42 +40,55 @@ void BaslerApi::run()
         return;
     }
 
-    if(m_isMasterSlaveNeeded){
+    if (m_isMasterSlaveNeeded) {
         configureMasterSlave();
-    }else{
+    } else {
         if (m_camera->TriggerMode.IsWritable()) {
             m_camera->TriggerMode.SetValue(TriggerMode_Off);
             qDebug() << "TriggerMode set to Off";
         }
     }
     setupCameraFeatures();
-    m_camera->StartGrabbing();
+    //    m_camera->StartGrabbing();
 
     while (m_isActive.load()) {
         if (m_commandsPending.load()) {
             applyPendingCommands();
             continue;
         }
-        if(!m_isGrabbing.load())
-            QApplication::processEvents();
+        if (!m_isGrabbing.load()) QApplication::processEvents();
         if (m_isGrabbing.load()) {
-            if(!m_camera->IsGrabbing()){
+            if (!m_camera->IsGrabbing()) {
                 startGrabbing();
-            }else{
+            } else {
                 try {
-                    m_camera->RetrieveResult(5000, m_ptrGrabResult, TimeoutHandling_ThrowException);
-                    if (m_ptrGrabResult.IsValid() && m_ptrGrabResult->GrabSucceeded()) {
+                    m_camera->RetrieveResult(5000, m_ptrGrabResult,
+                                             TimeoutHandling_ThrowException);
+                    if (m_ptrGrabResult.IsValid() &&
+                        m_ptrGrabResult->GrabSucceeded()) {
                         processRawData();
                     } else {
-                        if(m_isGrabbing.load()){
-                            QString err = m_ptrGrabResult.IsValid()
-                                ? QString("Grab failed: %1").arg(QString::fromStdString(m_ptrGrabResult->GetErrorDescription().c_str()))
-                                : "Invalid grab result";
+                        if (m_isGrabbing.load()) {
+                            QString err =
+                                m_ptrGrabResult.IsValid()
+                                    ? QString("Grab failed: %1")
+                                          .arg(QString::fromStdString(
+                                              m_ptrGrabResult
+                                                  ->GetErrorDescription()
+                                                  .c_str()))
+                                    : "Invalid grab result";
                             emit sendErrorMessage(err);
                         }
                     }
                 } catch (const GenericException& e) {
-                    emit sendErrorMessage(QString("Pylon Exception: %1").arg(e.GetDescription()));
+                    emit sendErrorMessage(
+                        QString("Pylon Exception: %1").arg(e.GetDescription()));
+                } catch (const std::exception& e) {
+                    emit sendErrorMessage(
+                        QString("Standard exception: %1").arg(e.what()));
+                } catch (...) {
+                    emit sendErrorMessage(
+                        "Unknown exception in BaslerApi::run");
                 }
             }
         }
@@ -91,8 +102,7 @@ void BaslerApi::run()
     }
 }
 
-void BaslerApi::startGrabbing()
-{
+void BaslerApi::startGrabbing() {
     if (!m_isGrabbing.exchange(true)) {
         if (m_camera && !m_camera->IsGrabbing() && m_camera->IsOpen()) {
             m_camera->StartGrabbing();
@@ -100,8 +110,7 @@ void BaslerApi::startGrabbing()
     }
 }
 
-void BaslerApi::pauseGrabbing()
-{
+void BaslerApi::pauseGrabbing() {
     if (m_isGrabbing.exchange(false)) {
         if (m_camera && m_camera->IsGrabbing()) {
             m_camera->StopGrabbing();
@@ -109,8 +118,7 @@ void BaslerApi::pauseGrabbing()
     }
 }
 
-void BaslerApi::stopGrabbing()
-{
+void BaslerApi::stopGrabbing() {
     pauseGrabbing();
     m_isActive = false;
 }
@@ -127,74 +135,63 @@ void BaslerApi::applyPixelFormatChanging(int value) {
         m_camera->PixelFormat.SetValue(static_cast<PixelFormatEnums>(value));
 }
 
-void BaslerApi::applyBinningHorizontalModeChanging(BinningHorizontalModeEnums mode) {
+void BaslerApi::applyBinningHorizontalModeChanging(
+    BinningHorizontalModeEnums mode) {
     if (m_camera->BinningHorizontalMode.IsWritable())
         m_camera->BinningHorizontalMode.SetValue(mode);
 }
 
-void BaslerApi::applyBinningVerticalModeChanging(BinningVerticalModeEnums mode) {
+void BaslerApi::applyBinningVerticalModeChanging(
+    BinningVerticalModeEnums mode) {
     if (m_camera->BinningVerticalMode.IsWritable())
         m_camera->BinningVerticalMode.SetValue(mode);
 }
 
-void BaslerApi::submitCommands(std::vector<std::unique_ptr<ParameterCommand> > commands)
-{
+void BaslerApi::submitCommands(
+    std::vector<std::unique_ptr<ParameterCommand>> commands) {
     QMutexLocker locker(&m_commandsMutex);
 
     m_pendingCommands = std::move(commands);
     m_commandsPending = true;
 }
 
-void BaslerApi::applyWidthChanging(int value)
-{
-    if (m_camera->Width.IsWritable())
-        m_camera->Width.SetValue(value);
+void BaslerApi::applyWidthChanging(int value) {
+    if (m_camera->Width.IsWritable()) m_camera->Width.SetValue(value);
 }
 
-void BaslerApi::applyHeightChanging(int value)
-{
-    if (m_camera->Height.IsWritable())
-        m_camera->Height.SetValue(value);
+void BaslerApi::applyHeightChanging(int value) {
+    if (m_camera->Height.IsWritable()) m_camera->Height.SetValue(value);
 }
 
-void BaslerApi::applyOffsetXChanging(int value)
-{
-    if (m_camera->OffsetX.IsWritable())
-        m_camera->OffsetX.SetValue(value);
+void BaslerApi::applyOffsetXChanging(int value) {
+    if (m_camera->OffsetX.IsWritable()) m_camera->OffsetX.SetValue(value);
 }
 
-void BaslerApi::applyOffsetYChanging(int value)
-{
-    if (m_camera->OffsetY.IsWritable())
-        m_camera->OffsetY.SetValue(value);
+void BaslerApi::applyOffsetYChanging(int value) {
+    if (m_camera->OffsetY.IsWritable()) m_camera->OffsetY.SetValue(value);
 }
 
-void BaslerApi::applyBinningHorizontalChanging(int value)
-{
+void BaslerApi::applyBinningHorizontalChanging(int value) {
     if (m_camera->BinningHorizontal.IsWritable())
         m_camera->BinningHorizontal.SetValue(value);
 }
 
-void BaslerApi::applyBinningVerticalChanging(int value)
-{
+void BaslerApi::applyBinningVerticalChanging(int value) {
     if (m_camera->BinningVertical.IsWritable())
         m_camera->BinningVertical.SetValue(value);
 }
 
-void BaslerApi::applyExposureChanging(double exposureMs)
-{
+void BaslerApi::applyExposureChanging(double exposureMs) {
     if (m_camera->ExposureTime.IsWritable())
         m_camera->ExposureTime.SetValue(exposureMs * 1000.0);
 }
 
-void BaslerApi::applyFramerateChanging(double fps)
-{
+void BaslerApi::applyFramerateChanging(double fps) {
     if (GenApi::IsAvailable(m_camera->AcquisitionFrameRate))
         m_camera->AcquisitionFrameRate.SetValue(fps);
 }
 
-bool BaslerApi::initializeCamera()
-{
+bool BaslerApi::initializeCamera() {
     try {
         CTlFactory& tlFactory = CTlFactory::GetInstance();
         DeviceInfoList_t devices;
@@ -209,28 +206,32 @@ bool BaslerApi::initializeCamera()
         for (size_t i = 0; i < devices.size(); ++i) {
             QString serial = devices[i].GetSerialNumber().c_str();
             if (serial == m_params.serialNumber) {
-                m_camera = new CBaslerUniversalInstantCamera(tlFactory.CreateDevice(devices[i]));
+                m_camera = new CBaslerUniversalInstantCamera(
+                    tlFactory.CreateDevice(devices[i]));
                 found = true;
                 break;
             }
         }
         if (!found) {
-            emit sendErrorMessage(QString("Camera with serial %1 not found.").arg(m_params.serialNumber));
+            emit sendErrorMessage(QString("Camera with serial %1 not found.")
+                                      .arg(m_params.serialNumber));
             return false;
         }
 
-        m_camera->RegisterConfiguration(new CSoftwareTriggerConfiguration, RegistrationMode_ReplaceAll, Cleanup_Delete);
+        m_camera->RegisterConfiguration(new CSoftwareTriggerConfiguration,
+                                        RegistrationMode_ReplaceAll,
+                                        Cleanup_Delete);
 
         m_camera->Open();
         return true;
     } catch (const GenericException& e) {
-        emit sendErrorMessage(QString("Init error: %1").arg(e.GetDescription()));
+        emit sendErrorMessage(
+            QString("Init error: %1").arg(e.GetDescription()));
         return false;
     }
 }
 
-void BaslerApi::setupCameraFeatures()
-{
+void BaslerApi::setupCameraFeatures() {
     if (!m_camera || !m_camera->IsOpen()) return;
 
     try {
@@ -254,12 +255,12 @@ void BaslerApi::setupCameraFeatures()
         applyPixelFormatChanging(PixelFormat_Mono8);
 
     } catch (const GenericException& e) {
-        emit sendErrorMessage(QString("Setup error: %1").arg(e.GetDescription()));
+        emit sendErrorMessage(
+            QString("Setup error: %1").arg(e.GetDescription()));
     }
 }
 
-void BaslerApi::configureMasterSlave()
-{
+void BaslerApi::configureMasterSlave() {
     if (!m_camera || !m_camera->IsOpen()) return;
 
     try {
@@ -307,12 +308,12 @@ void BaslerApi::configureMasterSlave()
             }
         }
     } catch (const GenericException& e) {
-        emit sendErrorMessage(QString("MasterSlave config error: %1").arg(e.GetDescription()));
+        emit sendErrorMessage(
+            QString("MasterSlave config error: %1").arg(e.GetDescription()));
     }
 }
 
-void BaslerApi::processRawData()
-{
+void BaslerApi::processRawData() {
     QByteArray rawData((const char*)m_ptrGrabResult->GetBuffer(),
                        m_ptrGrabResult->GetImageSize());
     emit rawDataReceived(rawData, m_ptrGrabResult->GetWidth(),
@@ -320,8 +321,7 @@ void BaslerApi::processRawData()
                          m_ptrGrabResult->GetPixelType());
 }
 
-void BaslerApi::applyPendingCommands()
-{
+void BaslerApi::applyPendingCommands() {
     if (!m_commandsPending.load()) return;
 
     std::vector<std::unique_ptr<ParameterCommand>> commands;

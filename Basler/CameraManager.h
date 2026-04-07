@@ -1,14 +1,16 @@
 #ifndef CAMERAMANAGER_H
 #define CAMERAMANAGER_H
 
+#include <QAtomicInt>
+#include <QMutex>
 #include <QObject>
 #include <QThreadPool>
-#include <QMutex>
-#include <QAtomicInt>
+#include <QtConcurrent/QtConcurrent>
+#include <atomic>
+
 #include "BaslerApi.h"
 #include "BaslerSettings.h"
 #include "SavingModule.h"
-
 /**
  * @brief Класс-менеджер, координирующий работу двух камер (мастер и слейв).
  *
@@ -16,18 +18,25 @@
  * обработку изменений параметров (с формированием команд),
  * передачу сырых данных в модуль сохранения и визуализацию.
  */
-class CameraManager : public QObject
-{
+class CameraManager : public QObject {
     Q_OBJECT
 
 public:
     /**
      * @brief Конструктор.
      * @param parent Родительский QObject.
-     * @param isMasterSlaveNeeded Флаг: использовать ли аппаратную синхронизацию master-slave.
+     * @param isMasterSlaveNeeded Флаг: использовать ли аппаратную синхронизацию
+     * master-slave.
      */
-    explicit CameraManager(QObject *parent = nullptr, bool isMasterSlaveNeeded = true);
+    explicit CameraManager(QObject *parent = nullptr,
+                           bool isMasterSlaveNeeded = true);
     ~CameraManager();
+
+    /**
+     * @brief Функция для инициализации камер. Вынесена из конструктора, чтобы
+     * сначала установились внешние соединения.
+     */
+    void initCameras();
 
     /**
      * @brief Запустить захват кадров (возобновить после паузы).
@@ -86,7 +95,19 @@ public:
      * @param isNeedToSaveHS Сохранять данные гиперспектрометра.
      * @param isNeedToSaveOC Сохранять данные обзорной камеры.
      */
-    void setIsNeedToSave(bool newIsNeedToSave, bool isNeedToSaveHS, bool isNeedToSaveOC);
+    void setIsNeedToSave(bool newIsNeedToSave, bool isNeedToSaveHS,
+                         bool isNeedToSaveOC);
+
+    /**
+     * @brief Включить/выключить передачу изображений в главное окно
+     * @param newIsImageNeeded Флаг для передачи
+     */
+    void setIsImageNeeded(bool newIsImageNeeded);
+
+    /**
+     * @brief Запустить сохранение одного кадра при следующем приеме данных
+     */
+    void makeSingleShootNeeded();
 
 signals:
     /**
@@ -95,22 +116,36 @@ signals:
     void ready();
 
     /**
+     * @brief Сигнал об изменении статуса подключения обзорной камеры (слейв).
+     * @param status true – камера подключена и инициализирована, false –
+     * отключена или ошибка.
+     */
+    void slaveConnectionStatusChanged(bool status);
+
+    /**
+     * @brief Сигнал об изменении статуса подключения гиперспектрометра
+     * @param status true – камера подключена и инициализирована, false –
+     * отключена или ошибка.
+     */
+    void masterConnectionStatusChanged(bool status);
+
+    /**
      * @brief Сигнал об ошибке.
      * @param message Текст ошибки.
      */
-    void errorOccurred(const QString& message);
+    void errorOccurred(const QString &message);
 
     /**
      * @brief Сигнал с изображением гиперспектрометра.
      * @param image QImage для отображения.
      */
-    void masterImageReady(const QImage& image);
+    void masterImageReady(const QImage &image, int maxBrightness);
 
     /**
      * @brief Сигнал с изображением обзорной камеры.
      * @param image QImage для отображения.
      */
-    void slaveImageReady(const QImage& image);
+    void slaveImageReady(const QImage &image, int maxBrightness);
 
     /**
      * @brief Сигнал с сырыми данными гиперспектрометра.
@@ -118,7 +153,7 @@ signals:
      * @param w Ширина.
      * @param h Высота.
      */
-    void masterRawData(const QByteArray& data, int w, int h);
+    void masterRawData(const QByteArray &data, int w, int h, int pixelFormat);
 
     /**
      * @brief Сигнал с сырыми данными обзорной камеры.
@@ -126,7 +161,7 @@ signals:
      * @param w Ширина.
      * @param h Высота.
      */
-    void slaveRawData(const QByteArray& data, int w, int h);
+    void slaveRawData(const QByteArray &data, int w, int h);
 
     /**
      * @brief Сигнал для принудительного обновления GUI при изменении параметра.
@@ -134,7 +169,9 @@ signals:
      * @param settingType Тип параметра.
      * @param value Новое значение.
      */
-    void forceParameterChanging(bool isMaster, BaslerConstants::SettingTypes settingType, QVariant value);
+    void forceParameterChanging(bool isMaster,
+                                BaslerConstants::SettingTypes settingType,
+                                QVariant value);
 
 public slots:
     /**
@@ -143,7 +180,8 @@ public slots:
      * @param type Тип параметра.
      * @param value Новое значение.
      */
-    void onSettingsChanged(bool isMaster, BaslerConstants::SettingTypes type, QVariant value);
+    void onSettingsChanged(bool isMaster, BaslerConstants::SettingTypes type,
+                           QVariant value);
 
     /**
      * @brief Слот для смены формата сохранения.
@@ -168,13 +206,13 @@ private slots:
      * @brief Обработка ошибок мастер-камеры.
      * @param err Текст ошибки.
      */
-    void onMasterError(const QString& err);
+    void onMasterError(const QString &err);
 
     /**
      * @brief Обработка ошибок слейв-камеры.
      * @param err Текст ошибки.
      */
-    void onSlaveError(const QString& err);
+    void onSlaveError(const QString &err);
 
     /**
      * @brief Приём сырых данных от мастер-камеры.
@@ -183,7 +221,7 @@ private slots:
      * @param h Высота изображения.
      * @param pixelFormat Формат пикселя.
      */
-    void onMasterRawData(const QByteArray& data, int w, int h, int pixelFormat);
+    void onMasterRawData(const QByteArray &data, int w, int h, int pixelFormat);
 
     /**
      * @brief Приём сырых данных от слейв-камеры.
@@ -192,7 +230,7 @@ private slots:
      * @param h Высота изображения.
      * @param pixelFormat Формат пикселя.
      */
-    void onSlaveRawData(const QByteArray& data, int w, int h, int pixelFormat);
+    void onSlaveRawData(const QByteArray &data, int w, int h, int pixelFormat);
 
 private:
     // --- Методы обработки и сохранения настроек ---
@@ -203,41 +241,53 @@ private:
      * @param type Тип изменённого параметра.
      * @param value Новое значение.
      */
-    void saveChangedSettings(BaslerSettings &baslerSettingsObject, BaslerCameraParams &cameraParams,
-                             BaslerConstants::SettingTypes type, QVariant value);
+    void saveChangedSettings(BaslerSettings &baslerSettingsObject,
+                             BaslerCameraParams &cameraParams,
+                             BaslerConstants::SettingTypes type,
+                             QVariant value);
 
     /**
-     * @brief Обработать изменение экспозиции или частоты кадров с учётом взаимосвязи.
+     * @brief Обработать изменение экспозиции или частоты кадров с учётом
+     * взаимосвязи.
      * @param cameraParams Структура параметров камеры.
      * @param type Тип изменённого параметра.
      * @param value Новое значение.
      * @param commands Вектор для добавления команд.
      */
-    void processExposureAndFramerateChanging(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
-                                             std::vector<std::unique_ptr<ParameterCommand>> &commands);
+    void processExposureAndFramerateChanging(
+        BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type,
+        QVariant value,
+        std::vector<std::unique_ptr<ParameterCommand>> &commands);
 
     /**
-     * @brief Обработать изменение параметров по оси X (ширина, смещение X, биннинг X).
+     * @brief Обработать изменение параметров по оси X (ширина, смещение X,
+     * биннинг X).
      * @param cameraParams Структура параметров камеры.
      * @param type Тип изменённого параметра.
      * @param value Новое значение.
      * @param commands Вектор для добавления команд.
      */
-    void processRoiAndBinningX(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
-                               std::vector<std::unique_ptr<ParameterCommand>> &commands);
+    void processRoiAndBinningX(
+        BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type,
+        QVariant value,
+        std::vector<std::unique_ptr<ParameterCommand>> &commands);
 
     /**
-     * @brief Обработать изменение параметров по оси Y (высота, смещение Y, биннинг Y).
+     * @brief Обработать изменение параметров по оси Y (высота, смещение Y,
+     * биннинг Y).
      * @param cameraParams Структура параметров камеры.
      * @param type Тип изменённого параметра.
      * @param value Новое значение.
      * @param commands Вектор для добавления команд.
      */
-    void processRoiAndBinningY(BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type, QVariant value,
-                               std::vector<std::unique_ptr<ParameterCommand>> &commands);
+    void processRoiAndBinningY(
+        BaslerCameraParams &cameraParams, BaslerConstants::SettingTypes type,
+        QVariant value,
+        std::vector<std::unique_ptr<ParameterCommand>> &commands);
 
     /**
-     * @brief Пересчитать значения для одной оси (размер, смещение, биннинг) и сформировать порядок команд.
+     * @brief Пересчитать значения для одной оси (размер, смещение, биннинг) и
+     * сформировать порядок команд.
      * @param size Текущий размер (width/height).
      * @param offset Текущее смещение (offsetX/offsetY).
      * @param binning Текущий коэффициент биннинга.
@@ -247,7 +297,8 @@ private:
      * @param commands Список типов команд в нужном порядке.
      */
     void calcRoiOnAxe(int &size, int &offset, int &binning,
-                      BaslerConstants::SettingTypes changedType, const QVariant &value, int maxSize,
+                      BaslerConstants::SettingTypes changedType,
+                      const QVariant &value, int maxSize,
                       QList<BaslerConstants::SettingTypes> &commands);
 
     /**
@@ -256,9 +307,10 @@ private:
      * @param binning Коэффициент биннинга.
      * @return Максимальный размер выходного изображения.
      */
-    inline int maxOutSize(int maxSize, int binning) { return maxSize / binning; }
+    inline int maxOutSize(int maxSize, int binning) {
+        return maxSize / binning;
+    }
 
-    // --- Вспомогательные методы для установки параметров ---
     /**
      * @brief Установить усиление (Gain) для указанной камеры.
      * @param isMaster Роль камеры.
@@ -278,7 +330,8 @@ private:
      * @param isMaster Роль камеры.
      * @param mode Режим (Sum/Average).
      */
-    void setBinningHorizontalMode(bool isMaster, BinningHorizontalModeEnums mode);
+    void setBinningHorizontalMode(bool isMaster,
+                                  BinningHorizontalModeEnums mode);
 
     /**
      * @brief Установить режим биннинга по вертикали.
@@ -292,31 +345,59 @@ private:
      * @param isMaster Роль камеры.
      * @param commands Вектор команд (владение передаётся).
      */
-    void submitCommands(bool isMaster, std::vector<std::unique_ptr<ParameterCommand>> commands);
+    void submitCommands(
+        bool isMaster, std::vector<std::unique_ptr<ParameterCommand>> commands);
+
+    /**
+     * @brief Вычисляет максимальное значение яркости в кадре.
+     * Анализирует сырые данные изображения и возвращает наибольшее значение
+     * пикселя с учётом формата.
+     *
+     * @param data Байтовый массив с данными кадра.
+     * @param w Ширина изображения в пикселях.
+     * @param h Высота изображения в пикселях.
+     * @param pixelFormat Формат пикселя (из Pylon: Mono8, Mono12, Mono12p).
+     * @return Максимальное значение яркости:
+     *         - Для Mono8: 0–255.
+     *         - Для Mono12: 0–4095.
+     */
+    int findMaxBrightness(const QByteArray &data, int w, int h,
+                          int pixelFormat);
 
     // --- Объекты управления камерами ---
-    BaslerApi* m_master;                 //!< Управление мастер-камерой (гиперспектрометр).
-    BaslerApi* m_slave;                  //!< Управление слейв-камерой (обзорная камера).
-    BaslerCameraParams m_hsParams;       //!< Текущие параметры гиперспектрометра.
-    BaslerCameraParams m_ocParams;       //!< Текущие параметры обзорной камеры.
-    BaslerSettings m_masterSettings;     //!< Загрузчик/сохранитель настроек для мастера.
-    BaslerSettings m_slaveSettings;      //!< Загрузчик/сохранитель настроек для слейва.
+    BaslerApi *m_master;  //!< Управление мастер-камерой (гиперспектрометр).
+    BaslerApi *m_slave;  //!< Управление слейв-камерой (обзорная камера).
+    BaslerCameraParams m_hsParams;  //!< Текущие параметры гиперспектрометра.
+    BaslerCameraParams m_ocParams;  //!< Текущие параметры обзорной камеры.
+    BaslerSettings
+        m_masterSettings;  //!< Загрузчик/сохранитель настроек для мастера.
+    BaslerSettings
+        m_slaveSettings;  //!< Загрузчик/сохранитель настроек для слейва.
 
     // --- Состояние системы ---
-    QAtomicInt m_connectedCount;         //!< Счётчик успешных подключений камер.
-    bool m_ready;                        //!< Флаг готовности обеих камер.
-    QMutex m_mutex;                      //!< Мьютекс для защиты m_ready.
-    bool m_isImageNeeded;                //!< Флаг необходимости отправлять изображения в GUI.
-    bool m_stopped;                      //!< Флаг, что остановка уже выполнена (защита от повторного вызова).
+    QAtomicInt m_connectedCount;  //!< Счётчик успешных подключений камер.
+    bool m_slaveReady;  //!< Флаг готовности слейв-камеры (ОК)
+    bool m_masterReady;  //!< Флаг готовности мастер-камеры (ГС)
+    bool m_ready;    //!< Флаг готовности обеих камер.
+    QMutex m_mutex;  //!< Мьютекс для защиты m_ready.
+    std::atomic<bool>
+        m_isImageNeeded;  //!< Флаг необходимости отправлять изображения
+                          //!< в GUI (0 — false, 1 — true)
+    std::atomic<bool>
+        m_isSingleShotNeeded;  //!< Флаг: нужно ли единичное сохранение
+    bool m_stopped;  //!< Флаг, что остановка уже выполнена (защита от
+                     //!< повторного вызова).
 
     // --- Модуль сохранения ---
-    SavingModule m_savingModule;         //!< Модуль сохранения данных.
-    QString m_frameTimeStamp;            //!< Временная метка для текущего кадра.
-    bool m_isNeedToSaveHS;               //!< Флаг сохранения данных гиперспектрометра.
-    bool m_isNeedToSaveOC;               //!< Флаг сохранения данных обзорной камеры.
+    SavingModule m_savingModule;  //!< Модуль сохранения данных.
+    QString m_frameTimeStamp;  //!< Временная метка для текущего кадра.
+    bool m_isNeedToSaveHS;  //!< Флаг сохранения данных гиперспектрометра.
+    bool m_isNeedToSaveOC;  //!< Флаг сохранения данных обзорной камеры.
 
-    static const int MAX_WIDTH = 1936;   //!< Максимальная физическая ширина сенсора (пиксели).
-    static const int MAX_HEIGHT = 1216;  //!< Максимальная физическая высота сенсора (пиксели).
+    static const int MAX_WIDTH =
+        1936;  //!< Максимальная физическая ширина сенсора (пиксели).
+    static const int MAX_HEIGHT =
+        1216;  //!< Максимальная физическая высота сенсора (пиксели).
 };
 
-#endif // CAMERAMANAGER_H
+#endif  // CAMERAMANAGER_H
