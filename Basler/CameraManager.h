@@ -189,6 +189,19 @@ public slots:
      */
     void onSavingModeChanged(const int savingFormat);
 
+    /**
+     * @brief Запустить серийную съёмку заданного количества пар кадров.
+     * @param count Количество снимков (пар).
+     * @param intervalMs Интервал между запусками в миллисекундах.
+     * @return true, если серия успешно запущена (не было активной серии).
+     */
+    bool startSeries(int count, int intervalMs = 100);
+
+    /**
+     * @brief Остановить текущую серийную съёмку (если активна).
+     */
+    void stopSeries();
+
 private slots:
     /**
      * @brief Обработка успешного подключения мастер-камеры.
@@ -231,6 +244,8 @@ private slots:
      * @param pixelFormat Формат пикселя.
      */
     void onSlaveRawData(const QByteArray &data, int w, int h, int pixelFormat);
+
+    void onSeriesTimer();  // слот для таймера серии
 
 private:
     // --- Методы обработки и сохранения настроек ---
@@ -391,6 +406,9 @@ private:
     // --- Модуль сохранения ---
     SavingModule m_savingModule;  //!< Модуль сохранения данных.
     QString m_frameTimeStamp;  //!< Временная метка для текущего кадра.
+    std::atomic<int>
+        m_pairSaveCounter;  //!< Счётчик сохранённых кадров в паре (0,1,2)
+    QMutex m_timestampMutex;  //!< Мьютекс для доступа к метке
     bool m_isNeedToSaveHS;  //!< Флаг сохранения данных гиперспектрометра.
     bool m_isNeedToSaveOC;  //!< Флаг сохранения данных обзорной камеры.
 
@@ -398,6 +416,10 @@ private:
         1936;  //!< Максимальная физическая ширина сенсора (пиксели).
     static const int MAX_HEIGHT =
         1216;  //!< Максимальная физическая высота сенсора (пиксели).
+
+    QTimer *m_seriesTimer;  // таймер для серийной съёмки
+    int m_seriesRemaining;  // оставшееся количество снимков в серии
+    bool m_seriesActive;  // флаг активности серии
 };
 
 #endif  // CAMERAMANAGER_H

@@ -40,6 +40,8 @@ public:
      */
     void setSavingPath(const QString &newSavingPath);
 
+    void makeDir(const QString &newSavingPath);
+
     /**
      * @brief Задать формат сохраняемых файлов.
      * @param newFormat Формат сохранения (Bmp или Binary).

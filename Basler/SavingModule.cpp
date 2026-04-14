@@ -13,7 +13,13 @@ SavingModule::SavingModule(QObject *parent)
 
 void SavingModule::setSavingPath(const QString &newSavingPath) {
     m_savingPath = newSavingPath;
-    QDir dir(m_savingPath);
+    makeDir(newSavingPath);
+    makeDir(newSavingPath + "/HS");
+    makeDir(newSavingPath + "/OC");
+}
+
+void SavingModule::makeDir(const QString &newSavingPath) {
+    QDir dir(newSavingPath);
     if (!dir.exists()) {
         dir.mkpath(".");
     }
@@ -51,7 +57,8 @@ void SavingModule::saveAsBmpAsync(const QByteArray &data, int width, int height,
     }
 
     QString fileName =
-        QString("%1/%2_%3.bmp").arg(savingPath).arg(prefix).arg(timeStamp);
+        QString("%1/%2/%3.bmp").arg(savingPath).arg(prefix).arg(timeStamp);
+    qDebug() << fileName;
     if (!img.save(fileName, "BMP")) {
         qWarning() << "Failed to save BMP:" << fileName;
     }

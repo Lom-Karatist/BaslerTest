@@ -17,14 +17,18 @@ CameraManager::CameraManager(QObject *parent, bool isMasterSlaveNeeded)
       m_isImageNeeded(false),
       m_isSingleShotNeeded(false),
       m_stopped(false),
+      m_pairSaveCounter(0),
       m_isNeedToSaveHS(true),
-      m_isNeedToSaveOC(true) {
+      m_isNeedToSaveOC(true),
+      m_seriesTimer(nullptr),
+      m_seriesRemaining(0),
+      m_seriesActive(false) {
     PylonInitialize();
     m_hsParams = m_masterSettings.loadParamsFromFile();
     m_ocParams = m_slaveSettings.loadParamsFromFile();
 
-    m_master = new BaslerApi(true, m_hsParams);
     m_slave = new BaslerApi(false, m_ocParams);
+    m_master = new BaslerApi(true, m_hsParams);
     m_master->setAutoDelete(false);
     m_slave->setAutoDelete(false);
 
@@ -44,6 +48,11 @@ CameraManager::CameraManager(QObject *parent, bool isMasterSlaveNeeded)
             &CameraManager::onMasterRawData, Qt::QueuedConnection);
     connect(m_slave, &BaslerApi::rawDataReceived, this,
             &CameraManager::onSlaveRawData, Qt::QueuedConnection);
+
+    m_seriesTimer = new QTimer(this);
+    m_seriesTimer->setSingleShot(false);
+    connect(m_seriesTimer, &QTimer::timeout, this,
+            &CameraManager::onSeriesTimer);
 }
 
 CameraManager::~CameraManager() {
@@ -55,8 +64,8 @@ CameraManager::~CameraManager() {
 }
 
 void CameraManager::initCameras() {
-    QThreadPool::globalInstance()->start(m_master);
     QThreadPool::globalInstance()->start(m_slave);
+    QThreadPool::globalInstance()->start(m_master);
 }
 
 void CameraManager::start() {
@@ -153,10 +162,10 @@ void CameraManager::onSlaveError(const QString &err) {
 void CameraManager::onMasterRawData(const QByteArray &data, int w, int h,
                                     int pixelFormat) {
     if (m_isImageNeeded.load()) {
-        QByteArray dataCopy = data;  // копия для передачи в другой поток
+        QByteArray dataCopy = data;
         QtConcurrent::run([this, dataCopy, w, h, pixelFormat]() {
-            QImage img = ImageFormatConverter::convertToHeatmapImage(
-                dataCopy, w, h, pixelFormat, 5);
+            QImage img = ImageFormatConverter::convertToQImage(dataCopy, w, h,
+                                                               pixelFormat);
 
             if (!img.isNull() && m_isImageNeeded.load()) {
                 int maxBright = findMaxBrightness(dataCopy, w, h, pixelFormat);
@@ -169,12 +178,29 @@ void CameraManager::onMasterRawData(const QByteArray &data, int w, int h,
 
     if ((m_savingModule.isNeedToSave() || m_isSingleShotNeeded) &&
         m_isNeedToSaveHS) {
-        int masterExpoMs = ceil(m_hsParams.exposureTime);
-        m_frameTimeStamp = QDateTime::currentDateTime()
-                               .addMSecs(-masterExpoMs)
-                               .toString("yyyyMMdd_HHmmss_zzz");
-        m_savingModule.saveDataAsync(data, w, h, pixelFormat, "/master",
-                                     m_frameTimeStamp);
+        QString timestamp;
+        bool needSecond = m_isNeedToSaveOC;
+
+        {
+            QMutexLocker locker(&m_timestampMutex);
+            if (m_pairSaveCounter.load() == 0) {
+                timestamp = QDateTime::currentDateTime().toString(
+                    "yyyyMMdd_HHmmss_zzz");
+                m_frameTimeStamp = timestamp;
+            } else {
+                timestamp = m_frameTimeStamp;
+            }
+            int oldCounter = m_pairSaveCounter.fetch_add(1);
+            int newCounter = oldCounter + 1;
+
+            if (newCounter == 2 || (newCounter == 1 && !needSecond)) {
+                m_frameTimeStamp.clear();
+                m_pairSaveCounter = 0;
+            }
+        }
+
+        m_savingModule.saveDataAsync(data, w, h, pixelFormat, "HS", timestamp);
+
         if (m_isSingleShotNeeded) {
             m_isNeedToSaveHS = false;
             if (!m_isNeedToSaveOC) m_isSingleShotNeeded = false;
@@ -195,13 +221,44 @@ void CameraManager::onSlaveRawData(const QByteArray &data, int w, int h,
 
     if ((m_savingModule.isNeedToSave() || m_isSingleShotNeeded) &&
         m_isNeedToSaveOC) {
-        m_savingModule.saveDataAsync(data, w, h, pixelFormat, "/slave",
-                                     m_frameTimeStamp);
+        QString timestamp;
+        bool needSecond = m_isNeedToSaveHS;
+
+        {
+            QMutexLocker locker(&m_timestampMutex);
+            if (m_pairSaveCounter.load() == 0) {
+                timestamp = QDateTime::currentDateTime().toString(
+                    "yyyyMMdd_HHmmss_zzz");
+                m_frameTimeStamp = timestamp;
+            } else {
+                timestamp = m_frameTimeStamp;
+            }
+            int oldCounter = m_pairSaveCounter.fetch_add(1);
+            int newCounter = oldCounter + 1;
+
+            if (newCounter == 2 || (newCounter == 1 && !needSecond)) {
+                m_frameTimeStamp.clear();
+                m_pairSaveCounter = 0;
+            }
+        }
+
+        m_savingModule.saveDataAsync(data, w, h, pixelFormat, "OC", timestamp);
+
         if (m_isSingleShotNeeded) {
             m_isNeedToSaveOC = false;
             if (!m_isNeedToSaveHS) m_isSingleShotNeeded = false;
         }
     }
+}
+
+void CameraManager::onSeriesTimer() {
+    if (!m_seriesActive) return;
+    if (m_seriesRemaining <= 0) {
+        stopSeries();
+        return;
+    }
+    makeSingleShootNeeded();
+    m_seriesRemaining--;
 }
 
 void CameraManager::saveChangedSettings(BaslerSettings &baslerSettingsObject,
@@ -572,6 +629,29 @@ void CameraManager::onSavingModeChanged(const int savingFormat) {
         default:
             break;
     }
+}
+
+bool CameraManager::startSeries(int count, int intervalMs) {
+    if (m_seriesActive) {
+        qWarning() << "Series already active";
+        return false;
+    }
+    if (count <= 0) {
+        qWarning() << "Invalid series count";
+        return false;
+    }
+    m_seriesActive = true;
+    m_seriesRemaining = count;
+    m_seriesTimer->start(intervalMs);
+    return true;
+}
+
+void CameraManager::stopSeries() {
+    if (m_seriesTimer && m_seriesTimer->isActive()) {
+        m_seriesTimer->stop();
+    }
+    m_seriesActive = false;
+    m_seriesRemaining = 0;
 }
 
 const BaslerCameraParams &CameraManager::hsParams() const { return m_hsParams; }

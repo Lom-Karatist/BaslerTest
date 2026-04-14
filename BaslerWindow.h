@@ -1,16 +1,19 @@
 #ifndef BASLERWINDOW_H
 #define BASLERWINDOW_H
 
-#include <QMainWindow>
 #include <Basler/CameraManager.h>
-#include <QCloseEvent>
 #include <BaslerSettingsForm.h>
+
 #include <QButtonGroup>
+#include <QCloseEvent>
 #include <QLabel>
+#include <QMainWindow>
 #include <QTimer>
 
 QT_BEGIN_NAMESPACE
-namespace Ui { class BaslerWindow; }
+namespace Ui {
+class BaslerWindow;
+}
 QT_END_NAMESPACE
 
 /**
@@ -21,8 +24,7 @@ QT_END_NAMESPACE
  * (запуск/остановка, настройка параметров, сохранение данных)
  * и переключение тем оформления.
  */
-class BaslerWindow : public QMainWindow
-{
+class BaslerWindow : public QMainWindow {
     Q_OBJECT
 
 public:
@@ -54,19 +56,19 @@ private slots:
      * @brief Обработка ошибок.
      * @param msg Текст ошибки.
      */
-    void onError(const QString& msg);
+    void onError(const QString &msg);
 
     /**
      * @brief Обновление изображения гиперспектрометра.
      * @param img Полученное изображение.
      */
-    void updateMasterImage(const QImage& img);
+    void updateMasterImage(const QImage &img);
 
     /**
      * @brief Обновление изображения обзорной камеры.
      * @param img Полученное изображение.
      */
-    void updateSlaveImage(const QImage& img);
+    void updateSlaveImage(const QImage &img);
 
     /**
      * @brief Выбор папки для сохранения.
@@ -87,6 +89,10 @@ private slots:
      * @brief Переключение ночного режима.
      */
     void on_actionDarkMode_triggered();
+
+    void on_pushButtonSingleShot_clicked();
+
+    void on_pushButtonSeries_clicked();
 
 private:
     // --- Методы инициализации ---
@@ -111,7 +117,8 @@ private:
      * @param formName Заголовок формы.
      * @param params Параметры камеры для отображения.
      */
-    void setupSettingBoxes(BaslerSettingsForm *form, QString formName, BaslerCameraParams params);
+    void setupSettingBoxes(BaslerSettingsForm *form, QString formName,
+                           BaslerCameraParams params);
 
     // --- Вспомогательные методы GUI ---
     /**
@@ -123,7 +130,8 @@ private:
     bool eventFilter(QObject *watched, QEvent *event) override;
 
     /**
-     * @brief Расчёт области отображения изображения внутри лейбла с учётом пропорций.
+     * @brief Расчёт области отображения изображения внутри лейбла с учётом
+     * пропорций.
      * @param labelSize Размер лейбла.
      * @param imageSize Размер исходного изображения.
      * @return Прямоугольник, в котором отображается изображение.
@@ -157,19 +165,21 @@ private:
     void stopRecordingBlink();
 
     // --- Члены класса ---
-    Ui::BaslerWindow *ui;                //!< Указатель на сгенерированный UI.
-    QString m_title;                     //!< Заголовок окна.
-    QSettings *m_settings;               //!< Объект для работы с настройками приложения.
-    QButtonGroup *m_saveFormatGroup;     //!< Группа радио-кнопок формата сохранения.
+    Ui::BaslerWindow *ui;  //!< Указатель на сгенерированный UI.
+    QString m_title;        //!< Заголовок окна.
+    QSettings *m_settings;  //!< Объект для работы с настройками приложения.
+    QButtonGroup
+        *m_saveFormatGroup;  //!< Группа радио-кнопок формата сохранения.
 
-    QLabel *m_masterOverlay;             //!< Оверлей для отображения значений пикселей.
-    QImage m_currentMasterImage;         //!< Текущее изображение гиперспектрометра (исходное).
+    QLabel *m_masterOverlay;  //!< Оверлей для отображения значений пикселей.
+    QImage m_currentMasterImage;  //!< Текущее изображение гиперспектрометра
+                                  //!< (исходное).
 
-    CameraManager *m_cameraManager;      //!< Менеджер камер.
-    bool m_isRunning;                    //!< Флаг: идёт ли захват кадров.
+    CameraManager *m_cameraManager;  //!< Менеджер камер.
+    bool m_isRunning;  //!< Флаг: идёт ли захват кадров.
 
-    QLabel *m_recordingIndicator;        //!< Мигающий индикатор записи.
-    QTimer *m_blinkTimer;                //!< Таймер для мигания индикатора.
+    QLabel *m_recordingIndicator;  //!< Мигающий индикатор записи.
+    QTimer *m_blinkTimer;  //!< Таймер для мигания индикатора.
 };
 
-#endif // BASLERWINDOW_H
+#endif  // BASLERWINDOW_H

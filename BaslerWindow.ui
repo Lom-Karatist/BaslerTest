@@ -59,6 +59,9 @@
         <property name="text">
          <string/>
         </property>
+        <property name="scaledContents">
+         <bool>false</bool>
+        </property>
        </widget>
       </item>
      </layout>
@@ -277,10 +280,36 @@ border:none;
          </size>
         </property>
         <property name="text">
-         <string>Начать запись</string>
+         <string>Непрерывная запись</string>
         </property>
         <property name="checkable">
          <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonSeries">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Серия кадров</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="pushButtonSingleShot">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="text">
+         <string>Одиночный кадр</string>
         </property>
        </widget>
       </item>
