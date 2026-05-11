@@ -11,6 +11,7 @@
 #include <QSize>
 #include <QStyleFactory>
 
+#include "Basler/ImageFormatConverter.h"
 #include "ui_BaslerWindow.h"
 #include "version.h"
 
@@ -89,6 +90,12 @@ void BaslerWindow::updateSlaveImage(const QImage &img) {
                                       Qt::SmoothTransformation));
 }
 
+void BaslerWindow::onMasterRawData(const QByteArray &data, int width,
+                                   int height, int pixelFormat) {
+    m_currentMasterRawImage =
+        ImageFormatConverter::convertToQImage(data, width, height, pixelFormat);
+}
+
 void BaslerWindow::setupSettingBoxes(BaslerSettingsForm *form, QString formName,
                                      BaslerCameraParams params) {
     form->setFormName(formName);
@@ -103,24 +110,35 @@ bool BaslerWindow::eventFilter(QObject *watched, QEvent *event) {
     if (watched == ui->labelHS && ui->actionShowHsValues->isChecked()) {
         if (event->type() == QEvent::MouseMove) {
             QMouseEvent *mouseEvent = static_cast<QMouseEvent *>(event);
-            if (!m_currentMasterImage.isNull()) {
+            if (!m_currentMasterImage.isNull() &&
+                !m_currentMasterRawImage.isNull()) {
                 QPoint pos = mouseEvent->pos();
                 QRect imageRect = getImageRect(ui->labelHS->size(),
                                                m_currentMasterImage.size());
                 if (imageRect.contains(pos)) {
                     int x = (pos.x() - imageRect.x()) *
-                            m_currentMasterImage.width() / imageRect.width();
+                            m_currentMasterRawImage.width() / imageRect.width();
                     int y = (pos.y() - imageRect.y()) *
-                            m_currentMasterImage.height() / imageRect.height();
+                            m_currentMasterRawImage.height() /
+                            imageRect.height();
 
-                    if (x >= 0 && x < m_currentMasterImage.width() && y >= 0 &&
-                        y < m_currentMasterImage.height()) {
-                        QRgb pixel = m_currentMasterImage.pixel(x, y);
-                        int gray = qGray(pixel);
+                    if (x >= 0 && x < m_currentMasterRawImage.width() &&
+                        y >= 0 && y < m_currentMasterRawImage.height()) {
+                        quint16 realValue = 0;
+                        if (m_currentMasterRawImage.format() ==
+                            QImage::Format_Grayscale16) {
+                            const quint16 *line =
+                                reinterpret_cast<const quint16 *>(
+                                    m_currentMasterRawImage.constScanLine(y));
+                            realValue = line[x];
+                        } else {
+                            QRgb pixel = m_currentMasterRawImage.pixel(x, y);
+                            realValue = qGray(pixel);
+                        }
                         m_masterOverlay->setText(QString("X=%1 Y=%2 Value=%3")
                                                      .arg(x)
                                                      .arg(y)
-                                                     .arg(gray));
+                                                     .arg(realValue));
                         m_masterOverlay->adjustSize();
                         m_masterOverlay->move(
                             ui->labelHS->width() - m_masterOverlay->width() - 5,
@@ -354,6 +372,9 @@ void BaslerWindow::initCameraManager() {
             &BaslerWindow::updateMasterImage);
     connect(m_cameraManager, &CameraManager::slaveImageReady, this,
             &BaslerWindow::updateSlaveImage);
+    connect(m_cameraManager, &CameraManager::masterRawData, this,
+            &BaslerWindow::onMasterRawData);
+
     m_cameraManager->setSavingPath(ui->lineEditSavingPath->text());
     m_cameraManager->initCameras();
 }
@@ -366,8 +387,9 @@ void BaslerWindow::setupGui() {
                       m_cameraManager->hsParams());
 
     m_saveFormatGroup = new QButtonGroup(this);
-    m_saveFormatGroup->addButton(ui->radioButtonSaveBmp, 0);
+    m_saveFormatGroup->addButton(ui->radioButtonSaveTiff, 0);
     m_saveFormatGroup->addButton(ui->radioButtonSaveBinary, 1);
+    m_saveFormatGroup->addButton(ui->radioButtonSaveBathes, 2);
     connect(m_saveFormatGroup, &QButtonGroup::idClicked, m_cameraManager,
             &CameraManager::onSavingModeChanged);
 
@@ -427,4 +449,8 @@ void BaslerWindow::on_pushButtonSeries_clicked() {
     int seriesCount = m_settings->value("Cameras/seriesCount").toInt();
     m_cameraManager->startSeries(
         seriesCount, ceil(m_cameraManager->hsParams().exposureTime * 3));
+}
+
+void BaslerWindow::on_actionStartConverter_triggered() {
+    qDebug() << "converter";
 }

@@ -6,13 +6,14 @@
 #include <QObject>
 #include <QString>
 
+#include "BatchSaver.h"
 #include "Types.h"
 
 /**
  * @class SavingModule
  * @brief Модуль для асинхронного сохранения данных от камер.
  *
- * Предоставляет методы для сохранения изображений в форматах BMP и Binary
+ * Предоставляет методы для сохранения изображений в форматах TIFF и Binary
  * (сырые данные). Сохранение выполняется в отдельном потоке с использованием
  * QtConcurrent, что не блокирует основной поток и поток захвата кадров.
  *
@@ -31,6 +32,7 @@ public:
      * @param parent Родительский QObject.
      */
     explicit SavingModule(QObject *parent = nullptr);
+    ~SavingModule();
 
     /**
      * @brief Задать путь для сохранения файлов.
@@ -44,7 +46,7 @@ public:
 
     /**
      * @brief Задать формат сохраняемых файлов.
-     * @param newFormat Формат сохранения (Bmp или Binary).
+     * @param newFormat Формат сохранения (TIFF или Binary).
      */
     void setFormat(BaslerConstants::SavingFormat newFormat);
 
@@ -81,8 +83,13 @@ public:
                        int pixelFormat, const QString &prefix,
                        const QString &timeStamp);
 
+    void saveDataAsync(const QByteArray &data, int width, int height,
+                       int pixelFormat, const QString &prefix,
+                       const QString &timeStamp,
+                       BaslerConstants::SavingFormat format);
+
     /**
-     * @brief Статический метод для асинхронного сохранения в формате BMP.
+     * @brief Статический метод для асинхронного сохранения в формате TIFF.
      * @param data Данные изображения.
      * @param width Ширина.
      * @param height Высота.
@@ -93,7 +100,12 @@ public:
      *
      * Является точкой входа для QtConcurrent. Не зависит от экземпляра класса.
      */
-    static void saveAsBmpAsync(const QByteArray &data, int width, int height,
+    static void saveAsTiffAsync(const QByteArray &data, int width, int height,
+                                int pixelFormat, const QString &prefix,
+                                const QString timeStamp,
+                                const QString savingPath);
+
+    static void saveAsPngAsync(const QByteArray &data, int width, int height,
                                int pixelFormat, const QString &prefix,
                                const QString timeStamp,
                                const QString savingPath);
@@ -123,10 +135,10 @@ public:
 
 private:
     /**
-     * @brief Синхронное сохранение в BMP (вспомогательный метод).
+     * @brief Синхронное сохранение в TIFF (вспомогательный метод).
      */
-    void saveAsBmp(const QByteArray &data, int width, int height,
-                   int pixelFormat, const QString &prefix, QString timeStamp);
+    void saveAsTiff(const QByteArray &data, int width, int height,
+                    int pixelFormat, const QString &prefix, QString timeStamp);
 
     /**
      * @brief Синхронное сохранение в бинарном формате.
@@ -145,6 +157,7 @@ private:
     bool m_isNeedToSave;  //!< Флаг: сохранять данные или нет.
     QString m_savingPath;  //!< Путь к каталогу для сохранения.
     BaslerConstants::SavingFormat m_format;  //!< Текущий формат сохранения.
+    BatchSaver *m_batchSaver;
 };
 
 #endif  // SAVINGMODULE_H

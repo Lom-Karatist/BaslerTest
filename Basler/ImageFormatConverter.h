@@ -107,6 +107,8 @@ public:
     static QImage convertToQImage(const QByteArray &data, int width, int height,
                                   int pixelFormat);
 
+    static QString getPixelFormatName(int pixelFormat);
+
 private:
     /**
      * @brief Распаковать данные формата Mono12p в массив 16-битных значений.

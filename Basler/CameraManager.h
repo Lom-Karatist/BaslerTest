@@ -185,7 +185,8 @@ public slots:
 
     /**
      * @brief Слот для смены формата сохранения.
-     * @param savingFormat Код формата (0 – BMP, 1 – бинарный).
+     * @param savingFormat Код формата (0 – Tiff, 1 – бинарный, 2  -
+     * пакетированный бинарный).
      */
     void onSavingModeChanged(const int savingFormat);
 
@@ -378,6 +379,8 @@ private:
      */
     int findMaxBrightness(const QByteArray &data, int w, int h,
                           int pixelFormat);
+
+    QImage normalizeImage(QImage &img);
 
     // --- Объекты управления камерами ---
     BaslerApi *m_master;  //!< Управление мастер-камерой (гиперспектрометр).

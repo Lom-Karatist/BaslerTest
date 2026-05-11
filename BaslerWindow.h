@@ -70,6 +70,9 @@ private slots:
      */
     void updateSlaveImage(const QImage &img);
 
+    void onMasterRawData(const QByteArray &data, int width, int height,
+                         int pixelFormat);
+
     /**
      * @brief Выбор папки для сохранения.
      */
@@ -93,6 +96,8 @@ private slots:
     void on_pushButtonSingleShot_clicked();
 
     void on_pushButtonSeries_clicked();
+
+    void on_actionStartConverter_triggered();
 
 private:
     // --- Методы инициализации ---
@@ -174,6 +179,7 @@ private:
     QLabel *m_masterOverlay;  //!< Оверлей для отображения значений пикселей.
     QImage m_currentMasterImage;  //!< Текущее изображение гиперспектрометра
                                   //!< (исходное).
+    QImage m_currentMasterRawImage;
 
     CameraManager *m_cameraManager;  //!< Менеджер камер.
     bool m_isRunning;  //!< Флаг: идёт ли захват кадров.

@@ -131,8 +131,22 @@ void BaslerApi::applyGainChanging(double value) {
 }
 
 void BaslerApi::applyPixelFormatChanging(int value) {
-    if (m_camera->PixelFormat.IsWritable())
-        m_camera->PixelFormat.SetValue(static_cast<PixelFormatEnums>(value));
+    if (m_camera->PixelFormat.IsWritable()) {
+        try {
+            m_camera->PixelFormat.SetIntValue(
+                static_cast<PixelFormatEnums>(value));
+        } catch (const GenericException& e) {
+            qDebug() << "Pylon exception:" << e.GetDescription();
+            emit sendErrorMessage(QString("Failed to set pixel format: %1")
+                                      .arg(e.GetDescription()));
+        } catch (const std::exception& e) {
+            qDebug() << "std exception:" << e.what();
+        } catch (...) {
+            qDebug() << "Unknown exception in applyPixelFormatChanging";
+        }
+    } else {
+        qDebug() << "PixelFormat not writable";
+    }
 }
 
 void BaslerApi::applyBinningHorizontalModeChanging(
@@ -187,8 +201,11 @@ void BaslerApi::applyExposureChanging(double exposureMs) {
 }
 
 void BaslerApi::applyFramerateChanging(double fps) {
+    qDebug() << "setting framerate to " << fps;
     if (GenApi::IsAvailable(m_camera->AcquisitionFrameRate))
         m_camera->AcquisitionFrameRate.SetValue(fps);
+    qDebug() << "current framerate:"
+             << m_camera->AcquisitionFrameRate.GetValue();
 }
 
 bool BaslerApi::initializeCamera() {
@@ -243,16 +260,17 @@ void BaslerApi::setupCameraFeatures() {
         if (m_camera->BalanceWhiteAuto.IsWritable())
             m_camera->BalanceWhiteAuto.SetValue(BalanceWhiteAuto_Off);
 
+        applyBinningHorizontalChanging(m_params.binningHorizontal);
+        applyBinningVerticalChanging(m_params.binningVertical);
         applyWidthChanging(m_params.width);
         applyHeightChanging(m_params.height);
         applyOffsetXChanging(m_params.offsetX);
         applyOffsetYChanging(m_params.offsetY);
-        applyBinningHorizontalChanging(m_params.binningHorizontal);
-        applyBinningVerticalChanging(m_params.binningVertical);
         applyExposureChanging(m_params.exposureTime);
+        applyFramerateChanging(m_params.acquisitionFrameRate);
 
         applyGainChanging(m_params.gain);
-        applyPixelFormatChanging(PixelFormat_Mono8);
+        applyPixelFormatChanging(m_params.pixelFormat);
 
     } catch (const GenericException& e) {
         emit sendErrorMessage(
@@ -279,6 +297,9 @@ void BaslerApi::configureMasterSlave() {
             }
             if (GenApi::IsAvailable(m_camera->LineInverter)) {
                 m_camera->LineInverter.SetValue(true);
+            }
+            if (GenApi::IsAvailable(m_camera->AcquisitionFrameRateEnable)) {
+                m_camera->AcquisitionFrameRateEnable.SetValue(true);
             }
         } else {
             m_camera->TriggerSelector.SetValue(TriggerSelector_FrameStart);

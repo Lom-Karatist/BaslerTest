@@ -27,8 +27,8 @@ CameraManager::CameraManager(QObject *parent, bool isMasterSlaveNeeded)
     m_hsParams = m_masterSettings.loadParamsFromFile();
     m_ocParams = m_slaveSettings.loadParamsFromFile();
 
-    m_slave = new BaslerApi(false, m_ocParams);
     m_master = new BaslerApi(true, m_hsParams);
+    m_slave = new BaslerApi(false, m_ocParams);
     m_master->setAutoDelete(false);
     m_slave->setAutoDelete(false);
 
@@ -64,8 +64,8 @@ CameraManager::~CameraManager() {
 }
 
 void CameraManager::initCameras() {
-    QThreadPool::globalInstance()->start(m_slave);
     QThreadPool::globalInstance()->start(m_master);
+    QThreadPool::globalInstance()->start(m_slave);
 }
 
 void CameraManager::start() {
@@ -162,16 +162,21 @@ void CameraManager::onSlaveError(const QString &err) {
 void CameraManager::onMasterRawData(const QByteArray &data, int w, int h,
                                     int pixelFormat) {
     if (m_isImageNeeded.load()) {
-        QByteArray dataCopy = data;
-        QtConcurrent::run([this, dataCopy, w, h, pixelFormat]() {
-            QImage img = ImageFormatConverter::convertToQImage(dataCopy, w, h,
-                                                               pixelFormat);
+        //        QImage img = ImageFormatConverter::convertToHeatmapImage(
+        //            data, w, h, pixelFormat, 20);
+        QImage img =
+            ImageFormatConverter::convertToQImage(data, w, h, pixelFormat);
 
-            if (!img.isNull() && m_isImageNeeded.load()) {
-                int maxBright = findMaxBrightness(dataCopy, w, h, pixelFormat);
+        if (!img.isNull()) {
+            int maxBright = findMaxBrightness(data, w, h, pixelFormat);
+            if (pixelFormat == PixelType_Mono12 ||
+                pixelFormat == PixelType_Mono12p) {
+                QImage normedImg = normalizeImage(img);
+                emit masterImageReady(normedImg, maxBright);
+            } else {
                 emit masterImageReady(img, maxBright);
             }
-        });
+        }
     }
 
     emit masterRawData(data, w, h, pixelFormat);
@@ -584,6 +589,46 @@ int CameraManager::findMaxBrightness(const QByteArray &data, int w, int h,
     return maxVal;
 }
 
+QImage CameraManager::normalizeImage(QImage &img) {
+    if (img.isNull()) return QImage();
+
+    // Если изображение не 16-бит grayscale, преобразуем в 8-бит как есть
+    if (img.format() != QImage::Format_Grayscale16) {
+        return img.convertToFormat(QImage::Format_Grayscale8);
+    }
+
+    int width = img.width();
+    int height = img.height();
+
+    // 1. Находим максимальное значение в кадре
+    quint16 maxVal = 0;
+    for (int y = 0; y < height; ++y) {
+        const quint16 *line =
+            reinterpret_cast<const quint16 *>(img.constScanLine(y));
+        for (int x = 0; x < width; ++x) {
+            if (line[x] > maxVal) maxVal = line[x];
+        }
+    }
+
+    if (maxVal == 0) {
+        // Всё изображение чёрное
+        return QImage(width, height, QImage::Format_Grayscale8);
+    }
+
+    // 2. Строим 8-битное нормализованное изображение
+    QImage result(width, height, QImage::Format_Grayscale8);
+    for (int y = 0; y < height; ++y) {
+        const quint16 *srcLine =
+            reinterpret_cast<const quint16 *>(img.constScanLine(y));
+        uchar *dstLine = result.scanLine(y);
+        for (int x = 0; x < width; ++x) {
+            // (value * 255) / maxVal
+            dstLine[x] = static_cast<uchar>((srcLine[x] * 255) / maxVal);
+        }
+    }
+    return result;
+}
+
 void CameraManager::setIsImageNeeded(bool newIsImageNeeded) {
     m_isImageNeeded = newIsImageNeeded;
 }
@@ -624,7 +669,10 @@ void CameraManager::onSavingModeChanged(const int savingFormat) {
             m_savingModule.setFormat(BaslerConstants::SavingFormat::Binary);
             break;
         case 0:
-            m_savingModule.setFormat(BaslerConstants::SavingFormat::Bmp);
+            m_savingModule.setFormat(BaslerConstants::SavingFormat::Tiff);
+            break;
+        case 2:
+            m_savingModule.setFormat(BaslerConstants::SavingFormat::Batched);
             break;
         default:
             break;

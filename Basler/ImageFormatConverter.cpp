@@ -100,7 +100,10 @@ QImage ImageFormatConverter::convertToHeatmapImage(const QByteArray &data,
 
     // 1. Получаем пиксельные значения в универсальном формате (16 бит)
     QVector<quint16> pixels = getPixelValues(data, width, height, pixelFormat);
-    if (pixels.isEmpty()) return QImage();
+    if (pixels.isEmpty()) {
+        qDebug() << "Pixel values are empty";
+        return QImage();
+    }
 
     // 2. Ширина поддиапазона (целочисленное деление)
     int bandWidth = width / numBands;
@@ -181,14 +184,35 @@ QImage ImageFormatConverter::convertToQImage(const QByteArray &data, int width,
         QVector<quint16> unpacked = unpackMono12p(data, numPixels);
         if (unpacked.size() != numPixels) return QImage();
         // Создаём QImage с копированием данных
-        QImage image(width, height, format);
-        for (int y = 0; y < height; ++y) {
-            memcpy(image.scanLine(y), unpacked.constData() + y * width,
-                   width * 2);
+        int max = 0;
+        foreach (auto val, unpacked) {
+            if (max < val) max = val;
         }
-        return image;
+        QImage image(reinterpret_cast<const uchar *>(unpacked.constData()),
+                     width, height, width * 2, format);
+
+        return image.copy();
     }
     return QImage();
+}
+
+QString ImageFormatConverter::getPixelFormatName(int pixelFormat) {
+    QString formatName;
+    switch (pixelFormat) {
+        case PixelType_Mono8:
+            formatName = "Mono8";
+            break;
+        case PixelType_Mono12:
+            formatName = "Mono12";
+            break;
+        case PixelType_Mono12p:
+            formatName = "Mono12p";
+            break;
+        default:
+            formatName = "Unknown";
+            break;
+    }
+    return formatName;
 }
 
 QVector<quint16> ImageFormatConverter::unpackMono12p(const QByteArray &data,
