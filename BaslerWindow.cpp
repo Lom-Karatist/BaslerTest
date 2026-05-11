@@ -12,6 +12,7 @@
 #include <QStyleFactory>
 
 #include "Basler/ImageFormatConverter.h"
+#include "ConversionTool/ConversionDialog.h"
 #include "ui_BaslerWindow.h"
 #include "version.h"
 
@@ -452,5 +453,7 @@ void BaslerWindow::on_pushButtonSeries_clicked() {
 }
 
 void BaslerWindow::on_actionStartConverter_triggered() {
-    qDebug() << "converter";
+    ConversionDialog *cDialog = new ConversionDialog(this);
+    cDialog->setAttribute(Qt::WA_DeleteOnClose);
+    cDialog->exec();
 }
