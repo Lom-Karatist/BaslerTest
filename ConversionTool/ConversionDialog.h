@@ -3,6 +3,9 @@
 
 #include <QDialog>
 #include <QSettings>
+#include <QThread>
+
+#include "ConversionWorker.h"
 
 namespace Ui {
 class ConversionDialog;
@@ -14,6 +17,8 @@ class ConversionDialog : public QDialog {
 public:
     explicit ConversionDialog(QWidget *parent = nullptr);
     ~ConversionDialog();
+
+    void accept();
 
 private slots:
     void on_pushButtonExperimentDir_clicked();
@@ -30,12 +35,18 @@ private slots:
 
     void on_checkBoxAddGpsData_stateChanged(int arg1);
 
+    void onConversionFinished(bool success, const QString &message);
+    void onProgressUpdated(int percent);
+
 private:
     void loadSettings();
 
     Ui::ConversionDialog *ui;
     QSettings *m_settings;
     bool m_initting;
+
+    QThread *m_workerThread;
+    ConversionWorker *m_worker;
 };
 
 #endif  // CONVERSIONDIALOG_H

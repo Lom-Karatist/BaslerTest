@@ -109,7 +109,6 @@ public:
 
     static QString getPixelFormatName(int pixelFormat);
 
-private:
     /**
      * @brief Распаковать данные формата Mono12p в массив 16-битных значений.
      *
@@ -124,6 +123,7 @@ private:
     static QVector<quint16> unpackMono12p(const QByteArray &data,
                                           int numPixels);
 
+private:
     /**
      * @brief Преобразует сырые данные в массив 16-битных значений пикселей.
      *

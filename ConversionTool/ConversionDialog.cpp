@@ -2,6 +2,7 @@
 
 #include <QDir>
 #include <QFileDialog>
+#include <QMessageBox>
 #include <QStandardPaths>
 
 #include "ui_ConversionDialog.h"
@@ -28,9 +29,56 @@ ConversionDialog::ConversionDialog(QWidget *parent)
 
     loadSettings();
     m_initting = false;
+
+    m_workerThread = nullptr;
+    m_worker = nullptr;
 }
 
-ConversionDialog::~ConversionDialog() { delete ui; }
+ConversionDialog::~ConversionDialog() {
+    delete ui;
+    if (m_workerThread) {
+        m_workerThread->quit();
+        m_workerThread->wait();
+    }
+}
+
+void ConversionDialog::accept() {
+    QString expDir = ui->lineEditExperimentDir->text();
+    if (expDir.isEmpty() || !QDir(expDir).exists()) {
+        QMessageBox::warning(this, "Ошибка",
+                             "Укажите существующую папку с экспериментом");
+        return;
+    }
+
+    // Запрещаем повторный запуск
+    ui->buttonBox->setEnabled(false);
+    ui->progressBar->setValue(0);
+
+    // Создаём рабочий поток
+    m_workerThread = new QThread(this);
+    m_worker = new ConversionWorker();
+    m_worker->moveToThread(m_workerThread);
+
+    connect(m_workerThread, &QThread::started, [=]() {
+        m_worker->runConversion(
+            ui->lineEditExperimentDir->text(),
+            ui->lineEditCalibrationPath->text(), ui->lineEditSavingDir->text(),
+            ui->lineEditSavingFileName->text(),
+            ui->comboBoxOutputFormat->currentData().toString(),
+            ui->checkBoxParseDataCubes->isChecked(),
+            ui->checkBoxAddGpsData->isChecked());
+    });
+    connect(m_worker, &ConversionWorker::progressUpdated, this,
+            &ConversionDialog::onProgressUpdated);
+    connect(m_worker, &ConversionWorker::finished, this,
+            &ConversionDialog::onConversionFinished);
+    connect(m_workerThread, &QThread::finished, m_worker,
+            &QObject::deleteLater);
+    connect(m_workerThread, &QThread::finished, m_workerThread,
+            &QThread::deleteLater);
+
+    m_workerThread->start();
+}
 
 void ConversionDialog::on_pushButtonExperimentDir_clicked() {
     QString checkPath;
@@ -137,4 +185,19 @@ void ConversionDialog::on_checkBoxAddGpsData_stateChanged(int arg1) {
         m_settings->setValue("Options/addGeoreferencing",
                              ui->checkBoxAddGpsData->isChecked());
     }
+}
+
+void ConversionDialog::onConversionFinished(bool success,
+                                            const QString &message) {
+    ui->buttonBox->setEnabled(true);
+    if (success) {
+        QMessageBox::information(this, "Конвертация", message);
+        QDialog::accept();  // закрываем диалог
+    } else {
+        QMessageBox::critical(this, "Ошибка конвертации", message);
+    }
+}
+
+void ConversionDialog::onProgressUpdated(int percent) {
+    ui->progressBar->setValue(percent);
 }
