@@ -80,6 +80,18 @@ bool CalibrationLoader::loadFromFile(const QString &filePath, bool skipHeader) {
         return false;
     }
 
+    //    QVector<QVector<double>> transposed(m_cols, QVector<double>(m_bands,
+    //    0.0)); for (int i = 0; i < m_bands; ++i) {
+    //        for (int j = 0; j < m_cols; ++j) {
+    //            transposed[j][i] = m_wavelengthMatrix[i][j];
+    //        }
+    //    }
+
+    //    m_wavelengthMatrix = transposed;
+    //    int oldBands = m_bands;
+    //    m_bands = m_cols;
+    //    m_cols = oldBands;
+
     qDebug() << "CalibrationLoader: загружена матрица" << m_bands << "x"
              << m_cols << "из" << filePath;
     return true;

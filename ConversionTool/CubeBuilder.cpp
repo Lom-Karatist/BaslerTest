@@ -19,9 +19,9 @@ HypercubeData CubeBuilder::buildCube(const QList<FrameDescriptor> &frames,
     }
 
     // Определяем размерности куба
-    int bands = frames.first().height;  // число спектральных каналов
+    int bands = frames.first().width;  // число спектральных каналов
     int cols =
-        frames.first().width;  // число пространственных пикселей в строке
+        frames.first().height;  // число пространственных пикселей в строке
     int rows = frames.size();  // число строк (кадров)
 
     result.meta.rows = rows;
@@ -44,25 +44,15 @@ HypercubeData CubeBuilder::buildCube(const QList<FrameDescriptor> &frames,
         for (int r = 0; r < rows; ++r) {
             const quint16 *frameData = reinterpret_cast<const quint16 *>(
                 frames[r].rawData.constData());
-            // Копируем для текущей строки (r) все пиксели (cols) для канала b
-            // Исходный формат кадра: [pixel0_band0, pixel0_band1, ...,
-            // pixel0_band(bands-1),
-            //                         pixel1_band0, ...]
-            for (int c = 0; c < cols; ++c) {
-                bandStart[r * cols + c] = frameData[c * bands + b];
+            for (int s = 0; s < cols; ++s) {
+                bandStart[r * cols + s] = frameData[s * bands + b];
             }
-        }
-        // Прогресс: b от 0 до bands-1, вес ~50% / bands
-        int newProgress = 50 + static_cast<int>((b + 1) * 50.0 / bands);
-        if (newProgress != progressPercent) {
-            progressPercent = newProgress;
-            emit progressUpdate(progressPercent);
         }
     }
 
     if (!calibrationFilePath.isEmpty()) {
         CalibrationLoader loader;
-        if (loader.loadFromFile(calibrationFilePath, true)) {
+        if (loader.loadFromFile(calibrationFilePath, false)) {
             // Проверяем, что размеры матрицы соответствуют
             if (loader.bands() == bands && loader.cols() == cols) {
                 result.meta.wavelengthMatrix = loader.wavelengthMatrix();

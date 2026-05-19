@@ -45,6 +45,7 @@ bool SigWriter::writeBinaryFile(const QString &path,
         qWarning() << "Не удалось открыть файл для записи:" << path;
         return false;
     }
+
     qint64 written = file.write(cube.data);
     file.close();
     return written == cube.data.size();
@@ -94,7 +95,7 @@ bool SigWriter::writeHdrFile(const QString &path, const HypercubeData &cube,
         << "\n";
     out << "time = " << QDateTime::currentDateTime().toString("hh:mm:ss")
         << "\n";
-    out << "measurementsType = RSD\n";
+    out << "measurementsType = ADC\n";
     out << "valueMultiplier = 1\n";
 
     file.close();
