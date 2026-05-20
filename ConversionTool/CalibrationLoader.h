@@ -49,7 +49,7 @@ public:
     /**
      * @brief Возвращает число пространственных пикселей (столбцов матрицы).
      */
-    int cols() const { return m_cols; }
+    int cols() const { return m_rows; }
 
     /**
      * @brief Проверяет, были ли загружены данные.
@@ -71,7 +71,7 @@ public:
 private:
     QVector<QVector<double>> m_wavelengthMatrix;
     int m_bands = 0;
-    int m_cols = 0;
+    int m_rows = 0;
     QString m_errorString;
 };
 

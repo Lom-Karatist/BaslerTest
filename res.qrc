@@ -6,5 +6,8 @@
         <file>Icons/open-folder.png</file>
         <file>Icons/open-folder_hover.png</file>
         <file>Icons/open-folder_pressed.png</file>
+        <file>4Release/Basler Test.ini</file>
+        <file>4Release/HS.ini</file>
+        <file>4Release/OC.ini</file>
     </qresource>
 </RCC>

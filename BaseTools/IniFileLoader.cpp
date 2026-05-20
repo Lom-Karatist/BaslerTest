@@ -1,29 +1,25 @@
 #include "IniFileLoader.h"
-#include <QDir>
-#include <QDebug>
 
-IniFileLoader::IniFileLoader(QObject *parent, QString projectName) : QObject(parent)
-{
+#include <QDebug>
+#include <QDir>
+#include <QStandardPaths>
+
+IniFileLoader::IniFileLoader(QObject *parent, QString projectName)
+    : QObject(parent) {
     m_settings = createSettingsObject(projectName);
 }
 
-IniFileLoader::~IniFileLoader()
-{
-    delete m_settings;
-}
+IniFileLoader::~IniFileLoader() { delete m_settings; }
 
-QSettings *IniFileLoader::settings() const
-{
-    return m_settings;
-}
+QSettings *IniFileLoader::settings() const { return m_settings; }
 
-QSettings *IniFileLoader::createSettingsObject(QString projectName)
-{
-    QString currentPath = QDir::currentPath();
+QSettings *IniFileLoader::createSettingsObject(QString projectName) {
+    QString currentPath =
+        QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
     currentPath.append("/" + projectName + ".ini");
     bool isIniExists = QFile(currentPath).exists();
 
-    if(!isIniExists){
+    if (!isIniExists) {
         QFile resFile;
         QString qrcFileName = ":/4Release/" + projectName + ".ini";
         resFile.copy(qrcFileName, currentPath);
@@ -31,5 +27,5 @@ QSettings *IniFileLoader::createSettingsObject(QString projectName)
         fileCopied.setPermissions(QFileDevice::WriteOther);
     }
 
-    return new QSettings(currentPath,QSettings::IniFormat);
+    return new QSettings(currentPath, QSettings::IniFormat);
 }

@@ -1,6 +1,7 @@
 #include "BaslerSettings.h"
 
 #include <QFile>
+#include <QStandardPaths>
 
 BaslerSettings::BaslerSettings(QObject *parent, QString fileName)
     : QObject{parent} {
@@ -108,16 +109,19 @@ void BaslerSettings::saveParams(const BaslerCameraParams &cameraParams) {
 const QSettings *BaslerSettings::settings() const { return m_settings; }
 
 QSettings *BaslerSettings::createSettingsObject(QString iniFileName) {
-    bool isIniExists = QFile(iniFileName).exists();
+    QString currentPath =
+        QStandardPaths::writableLocation(QStandardPaths::AppConfigLocation);
+    bool isIniExists = QFile(currentPath + iniFileName).exists();
 
-    //    if(!isIniExists){
-    //        QFile resFile;
-    //        QString qrcFileName = ":/4Release/" + projectName + ".ini";
-    //        resFile.copy(qrcFileName, currentPath);
-    //        QFile fileCopied(currentPath);
-    //        fileCopied.setPermissions(QFileDevice::WriteOther);
-    //    }
-    //    qDebug()<<"ini loading result:"<<isIniExists;
+    if (!isIniExists) {
+        QFile resFile;
+        QString qrcFileName = ":/4Release" + iniFileName;
+        qDebug() << "Restoring from" << qrcFileName << "to"
+                 << currentPath + iniFileName;
+        resFile.copy(qrcFileName, currentPath + iniFileName);
+        QFile fileCopied(currentPath);
+        fileCopied.setPermissions(QFileDevice::WriteOther);
+    }
 
-    return new QSettings(iniFileName, QSettings::IniFormat);
+    return new QSettings(currentPath + iniFileName, QSettings::IniFormat);
 }
