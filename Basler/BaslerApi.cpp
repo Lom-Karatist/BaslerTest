@@ -252,13 +252,14 @@ void BaslerApi::setupCameraFeatures() {
     if (!m_camera || !m_camera->IsOpen()) return;
 
     try {
-        // Отключаем автонастройки, если они есть
         if (m_camera->ExposureAuto.IsWritable())
             m_camera->ExposureAuto.SetValue(ExposureAuto_Off);
         if (m_camera->GainAuto.IsWritable())
             m_camera->GainAuto.SetValue(GainAuto_Off);
         if (m_camera->BalanceWhiteAuto.IsWritable())
             m_camera->BalanceWhiteAuto.SetValue(BalanceWhiteAuto_Off);
+        if (m_camera->ReverseY.IsWritable())
+            m_camera->ReverseY.SetValue(m_params.reverseY);
 
         applyBinningHorizontalChanging(m_params.binningHorizontal);
         applyBinningVerticalChanging(m_params.binningVertical);

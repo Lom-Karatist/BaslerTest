@@ -88,11 +88,12 @@ QVector<double> CalibrationLoader::averageWavelengths() const {
     QVector<double> avg(m_bands, 0.0);
     if (m_bands == 0 || m_rows == 0) return avg;
 
-    for (int b = 0; b < m_bands; ++b) {
-        const QVector<double> &row = m_wavelengthMatrix[b];
+    for (int band = 0; band < m_bands; ++band) {
         double sum = 0.0;
-        for (double wl : row) sum += wl;
-        avg[b] = sum / m_rows;
+        for (int row = 0; row < m_rows; ++row) {
+            sum += m_wavelengthMatrix[row][band];
+        }
+        avg[band] = sum / m_rows;
     }
     return avg;
 }

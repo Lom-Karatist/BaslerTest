@@ -31,6 +31,7 @@ BaslerCameraParams BaslerSettings::loadParamsFromFile() {
     else if (pixFmt == BaslerConstants::pixelFormats().at(2))
         params.pixelFormat = PixelType_Mono12p;
 
+    params.reverseY = m_settings->value("reverseY").toBool();
     params.width = m_settings->value("width", 1920).toInt();
     params.height = m_settings->value("height", 1200).toInt();
     params.offsetX = m_settings->value("offsetX", 0).toInt();
@@ -115,7 +116,7 @@ QSettings *BaslerSettings::createSettingsObject(QString iniFileName) {
 
     if (!isIniExists) {
         QFile resFile;
-        QString qrcFileName = ":/4Release" + iniFileName;
+        QString qrcFileName = ":/Basler/4Release" + iniFileName;
         qDebug() << "Restoring from" << qrcFileName << "to"
                  << currentPath + iniFileName;
         resFile.copy(qrcFileName, currentPath + iniFileName);
